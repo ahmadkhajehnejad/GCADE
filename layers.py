@@ -77,7 +77,7 @@ class AutoRegressiveGraphConvLayer(nn.Module):
         if self.exclude_last:
             concatenated = agg_precedings
         else:
-            concatenated = torch.cat( [agg_precedings, input_edges[:,-1,:]])
+            concatenated = torch.cat( [agg_precedings, input_edges[:,-1,:]], axis=1)
         multiplied = torch.matmul(concatenated, self.weight_edges)
         biased = multiplied + self.bias_edges.unsqueeze(0).repeat(batch_size, 1)
         activated = self.activation_edges(biased)
@@ -95,8 +95,8 @@ class AutoRegressiveGraphConvLayer(nn.Module):
         if self.exclude_last:
             concatenated = agg_precedings
         else:
-            concatenated = torch.cat( [agg_precedings, input_nodes[:,-1,:]])
-        multiplied = torch.matmul(concatenated, self.weight_edges)
+            concatenated = torch.cat( [agg_precedings, input_nodes[:,-1,:]], axis=1)
+        multiplied = torch.matmul(concatenated, self.weight_nodes)
         biased = multiplied + self.bias_edges.unsqueeze(0).repeat(batch_size, 1)
         activated = self.activation_edges(biased)
         return activated
@@ -117,7 +117,7 @@ class AutoRegressiveGraphConvLayer(nn.Module):
                 k += 1
 
             list_output_nodes.append(
-                self._update_node(input_nodes[:, j0:i+1, :], input_edges[:, k0:k, :]).unsqueese(1))
+                self._update_node(input_nodes[:, j0:i+1, :], input_edges[:, k0:k, :]).unsqueeze(1))
 
         output_nodes = torch.cat(list_output_nodes, dim=1)
         output_edges = torch.cat(list_output_edges, dim=1)

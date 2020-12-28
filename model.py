@@ -33,7 +33,7 @@ class GCADEModel(nn.Module):
 
     def forward(self, input_nodes, input_edges):
         output_nodes, output_edges = input_nodes, input_edges
-        for i in self.num_layers:
+        for i in range(self.num_layers):
             layer = getattr(self, 'lay_' + str(i))
             output_nodes, output_edges = layer(output_nodes, output_edges)
         return output_nodes, output_edges
@@ -72,9 +72,9 @@ def train(gcade_model, dataset_train, args):
         trsz = 0
         gcade_model.train()
         for i, data in enumerate(dataset_train, 0):
-            input_nodes = data['input_nodes_features']
-            input_edges = data['input_edges_features']
-            len_ = data['len']
+            input_nodes = data['input_nodes_features'].float()
+            input_edges = data['input_edges_features'].float()
+            len_ = data['len'].float()
 
             optimizer.zero_grad()
             pred_nodes, pred_edges = gcade_model(input_nodes, input_edges)
