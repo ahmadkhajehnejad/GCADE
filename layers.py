@@ -21,15 +21,15 @@ class AutoRegressiveGraphConvLayer(nn.Module):
         self.exclude_last = exclude_last
 
         if exclude_last:
-            self.weight_nodes = nn.Parameter(torch.Tensor(num_agg_features_nodes, num_output_features_nodes))
-            self.weight_edges = nn.Parameter(torch.Tensor(num_agg_features_edges, num_output_features_edges))
+            self.weight_nodes = nn.Parameter(torch.Tensor(num_agg_features_nodes, num_output_features_nodes), requires_grad=True)
+            self.weight_edges = nn.Parameter(torch.Tensor(num_agg_features_edges, num_output_features_edges), requires_grad=True)
         else:
-            self.weight_nodes = nn.Parameter(torch.Tensor(num_agg_features_nodes * num_input_features_nodes,
-                                                          num_output_features_nodes))
+            self.weight_nodes = nn.Parameter(torch.Tensor(num_agg_features_nodes + num_input_features_nodes,
+                                                          num_output_features_nodes), requires_grad=True)
             self.weight_edges = nn.Parameter(torch.Tensor(num_agg_features_edges + num_input_features_edges,
-                                                          num_output_features_edges))
-        self.bias_nodes = nn.Parameter(torch.Tensor(num_output_features_nodes))
-        self.bias_edges = nn.Parameter(torch.Tensor(num_output_features_edges))
+                                                          num_output_features_edges), requires_grad=True)
+        self.bias_nodes = nn.Parameter(torch.Tensor(num_output_features_nodes), requires_grad=True)
+        self.bias_edges = nn.Parameter(torch.Tensor(num_output_features_edges), requires_grad=True)
 
         self.weight_nodes.data.uniform_(-0.1, 0.1)
         self.bias_nodes.data.uniform_(-0.1, 0.1)

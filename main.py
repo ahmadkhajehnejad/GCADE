@@ -3,9 +3,9 @@ import torch
 import os
 import random
 from data import MyGraph_sequence_sampler_pytorch
-from args import Args
+from config import Args
 import numpy as np
-from model import GCADEModel #, train
+from model import GCADEModel, train
 
 
 # if __name__ == '__main__':
@@ -46,7 +46,6 @@ args.max_num_node = max([graphs[i].number_of_nodes() for i in range(len(graphs))
 max_num_edge = max([graphs[i].number_of_edges() for i in range(len(graphs))])
 min_num_edge = min([graphs[i].number_of_edges() for i in range(len(graphs))])
 
-# args.max_num_node = 2000
 # show graphs statistics
 print('total graph num: {}, training set: {}'.format(len(graphs), len(graphs_train)))
 print('max number node: {}'.format(args.max_num_node))
@@ -84,4 +83,6 @@ dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size
                                              sampler=sample_strategy)
 
 
-gcade_model = GCADEModel()
+gcade_model = GCADEModel(args)
+
+# train(gcade_model, dataset_loader, args)

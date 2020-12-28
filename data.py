@@ -475,7 +475,7 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
 
         num_e = 0
         for i in range(self.n):
-            num_e += min(self.max_prev_node, i - 1)
+            num_e += min(self.max_prev_node, i)
         self.e = num_e
 
         # self.max_prev_node = max_prev_node
