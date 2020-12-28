@@ -5,9 +5,11 @@ class AutoRegressiveGraphConvLayer(nn.Module):
 
     def __init__(self, n, m, num_input_features_nodes, num_input_features_edges,
                  num_agg_features_nodes, num_agg_features_edges, num_output_features_nodes, num_output_features_edges,
-                 activation_nodes, activation_edges, exclude_last=False):
+                 activation_nodes, activation_edges, exclude_last=False, device='cpu'):
 
         super(AutoRegressiveGraphConvLayer, self).__init__()
+
+        self.device = device
 
         self.n = n
         self.m = m
@@ -21,15 +23,15 @@ class AutoRegressiveGraphConvLayer(nn.Module):
         self.exclude_last = exclude_last
 
         if exclude_last:
-            self.weight_nodes = nn.Parameter(torch.Tensor(num_agg_features_nodes, num_output_features_nodes), requires_grad=True)
-            self.weight_edges = nn.Parameter(torch.Tensor(num_agg_features_edges, num_output_features_edges), requires_grad=True)
+            self.weight_nodes = nn.Parameter(torch.Tensor(num_agg_features_nodes, num_output_features_nodes), requires_grad=True).to(device)
+            self.weight_edges = nn.Parameter(torch.Tensor(num_agg_features_edges, num_output_features_edges), requires_grad=True).to(device)
         else:
             self.weight_nodes = nn.Parameter(torch.Tensor(num_agg_features_nodes + num_input_features_nodes,
-                                                          num_output_features_nodes), requires_grad=True)
+                                                          num_output_features_nodes), requires_grad=True).to(device)
             self.weight_edges = nn.Parameter(torch.Tensor(num_agg_features_edges + num_input_features_edges,
-                                                          num_output_features_edges), requires_grad=True)
-        self.bias_nodes = nn.Parameter(torch.Tensor(num_output_features_nodes), requires_grad=True)
-        self.bias_edges = nn.Parameter(torch.Tensor(num_output_features_edges), requires_grad=True)
+                                                          num_output_features_edges), requires_grad=True).to(device)
+        self.bias_nodes = nn.Parameter(torch.Tensor(num_output_features_nodes), requires_grad=True).to(device)
+        self.bias_edges = nn.Parameter(torch.Tensor(num_output_features_edges), requires_grad=True).to(device)
 
         self.weight_nodes.data.uniform_(-0.1, 0.1)
         self.bias_nodes.data.uniform_(-0.1, 0.1)
@@ -41,23 +43,23 @@ class AutoRegressiveGraphConvLayer(nn.Module):
 
         if self.exclude_last:
             self.lin_agg_node_1 = nn.Linear(self.num_input_features_nodes + self.num_input_features_edges,
-                                            2 * self.num_agg_features_nodes)
-            self.lin_agg_node_2 = nn.Linear(2 * self.num_agg_features_nodes, self.num_agg_features_nodes)
+                                            2 * self.num_agg_features_nodes).to(device)
+            self.lin_agg_node_2 = nn.Linear(2 * self.num_agg_features_nodes, self.num_agg_features_nodes).to(device)
             def aggregate_for_node(x_node_1, x_edge):
                 return torch.nn.ReLU()(
                     self.lin_agg_node_2( self.lin_agg_node_1( torch.cat( [x_node_1, x_edge], dim=1))))
         else:
             self.lin_agg_node_1 = nn.Linear(2 * self.num_input_features_nodes + self.num_input_features_edges,
-                                            2 * self.num_agg_features_nodes)
-            self.lin_agg_node_2 = nn.Linear(2 * self.num_agg_features_nodes, self.num_agg_features_nodes)
+                                            2 * self.num_agg_features_nodes).to(device)
+            self.lin_agg_node_2 = nn.Linear(2 * self.num_agg_features_nodes, self.num_agg_features_nodes).to(device)
             def aggregate_for_node(x_node_1, x_node_2, x_edge):
                 return torch.nn.ReLU()(
                     self.lin_agg_node_2( self.lin_agg_node_1( torch.cat( [x_node_1, x_node_2, x_edge], dim=1))))
         self.agg_node = aggregate_for_node
 
         self.lin_agg_edge_1 = nn.Linear(self.num_input_features_nodes + self.num_input_features_edges,
-                                        2 * self.num_agg_features_edges)
-        self.lin_agg_edge_2 = nn.Linear(2 * self.num_agg_features_edges, self.num_agg_features_edges)
+                                        2 * self.num_agg_features_edges).to(device)
+        self.lin_agg_edge_2 = nn.Linear(2 * self.num_agg_features_edges, self.num_agg_features_edges).to(device)
         def aggregate_for_edge(x_node, x_edge):
             return torch.nn.ReLU()(
                 self.lin_agg_edge_2( self.lin_agg_edge_1( torch.cat( [x_node, x_edge], dim=1))))
@@ -69,7 +71,7 @@ class AutoRegressiveGraphConvLayer(nn.Module):
     def _update_edge(self, input_nodes, input_edges):
         batch_size = input_nodes.size(0)
         if input_nodes.size(1) == 0:
-            agg_precedings = torch.zeros(batch_size, self.num_agg_features_edges, dtype=torch.float)
+            agg_precedings = torch.zeros(batch_size, self.num_agg_features_edges, dtype=torch.float).to(self.device)
         else:
             list_precedings = [self.agg_edge(input_nodes[:,i,:], input_edges[:,i,:]).unsqueeze(1)
                                for i in range(input_nodes.size(1))]
@@ -87,7 +89,7 @@ class AutoRegressiveGraphConvLayer(nn.Module):
     def _update_node(self, input_nodes, input_edges):
         batch_size = input_nodes.size(0)
         if input_nodes.size(1) == 1:
-            agg_precedings = torch.zeros(batch_size, self.num_agg_features_nodes, dtype=torch.float)
+            agg_precedings = torch.zeros(batch_size, self.num_agg_features_nodes, dtype=torch.float).to(self.device)
         else:
             list_precedings = [self.agg_node(input_nodes[:,i,:], input_nodes[:,-1,:], input_edges[:,i,:]).unsqueeze(1)
                                for i in range(input_nodes.size(1) - 1)]

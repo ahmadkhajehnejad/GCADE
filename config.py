@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 class Args():
     def __init__(self):
@@ -48,6 +49,9 @@ class Args():
         self.lr_rate = 0.3
 
         self.sample_time = 2  # sample time in each time step, when validating
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print('self.device:', self.device)
 
     def list_layer_sizes(self):
         return [

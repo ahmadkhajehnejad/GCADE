@@ -10,6 +10,8 @@ from model import GCADEModel, train
 
 # if __name__ == '__main__':
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 args = Args()
 graphs = create_graphs.create(args)
 

@@ -29,7 +29,7 @@ class GCADEModel(nn.Module):
                                                                         layer_size['output_features_nodes'],
                                                                         layer_size['output_features_edges'],
                                                                         nn.ReLU(), nn.ReLU(),
-                                                                        exclude_last=(i == len(list_layer_sizes) - 1)))
+                                                                        exclude_last=(i == len(list_layer_sizes) - 1), device=args.device))
 
     def forward(self, input_nodes, input_edges):
         output_nodes, output_edges = input_nodes, input_edges
@@ -72,9 +72,10 @@ def train(gcade_model, dataset_train, args):
         trsz = 0
         gcade_model.train()
         for i, data in enumerate(dataset_train, 0):
-            input_nodes = data['input_nodes_features'].float()
-            input_edges = data['input_edges_features'].float()
-            len_ = data['len'].float()
+            print(' #', i)
+            input_nodes = data['input_nodes_features'].float().to(args.device)
+            input_edges = data['input_edges_features'].float().to(args.device)
+            len_ = data['len'].float().to(args.device)
 
             optimizer.zero_grad()
             pred_nodes, pred_edges = gcade_model(input_nodes, input_edges)
