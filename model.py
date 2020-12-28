@@ -36,8 +36,25 @@ class GCADEModel(nn.Module):
             output_nodes, output_edges = layer(output_nodes, output_edges)
         return output_nodes, output_edges
 
-def nll(input_nodes, input_edges, output_nodes, output_edges):
-    
+def nll(input_nodes, input_edges, output_nodes, output_edges, len_):
+    max_n = input_nodes.size(1)
+    batch_size = input_nodes.size(0)
+    res = torch.zeros(batch_size)
+    k = 0
+    for i in range(max_n):
+        ind = torch.gt(len_, i)
+        tmp_1 = torch.log(output_nodes[ind, i, 0])
+        tmp_2 = torch.log(output_edges[ind, k:k+i, 0]) * input_edges[ind, k:k+i, 0] + \
+            torch.log(1 - output_edges[ind, k:k+i, 0]) * (1 - input_edges[ind, k:k+i, 0])
+        res[ind] += tmp_1 + tmp_2
+        k += i
+
+        if i < max_n - 1:
+            ind = torch.eq(len_, i+1)
+            tmp = torch.log(1 - output_nodes[ind, i+1,0])
+            res[ind] += tmp
+    return res
+
 
 def train(gcade_model, dataset_train, args):
 
@@ -55,10 +72,11 @@ def train(gcade_model, dataset_train, args):
         for i, data in enumerate(dataset_train, 0):
             input_nodes = data['input_nodes_features']
             input_edges = data['input_edges_features']
+            len_ = data['len']
 
             optimizer.zero_grad()
             pred_nodes, pred_edges = gcade_model(input_nodes, input_edges)
-            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges)
+            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_)
             loss.backward()
             optimizer.step()
             scheduler.step()
