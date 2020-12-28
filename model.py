@@ -19,6 +19,7 @@ class GCADEModel(nn.Module):
 
         list_layer_sizes = args.list_layer_sizes()
 
+        self.num_layers = len(list_layer_sizes)
         for i, layer_size in enumerate(list_layer_sizes):
             setattr(self, 'lay_' + str(i), AutoRegressiveGraphConvLayer(args.max_num_node, args.max_prev_node,
                                                                         layer_size['input_features_nodes'],
@@ -32,7 +33,8 @@ class GCADEModel(nn.Module):
 
     def forward(self, input_nodes, input_edges):
         output_nodes, output_edges = input_nodes, input_edges
-        for layer in self.layes:
+        for i in self.num_layers:
+            layer = getattr(self, 'lay_' + str(i))
             output_nodes, output_edges = layer(output_nodes, output_edges)
         return output_nodes, output_edges
 

@@ -85,4 +85,4 @@ dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size
 
 gcade_model = GCADEModel(args)
 
-# train(gcade_model, dataset_loader, args)
+train(gcade_model, dataset_loader, args)
