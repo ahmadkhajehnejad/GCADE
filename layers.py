@@ -46,9 +46,9 @@ class AutoRegressiveGraphConvLayer(nn.Module):
             node_idx_node_edge_pairs += list(range(j0,i))
             edge_idx_node_edge_pairs += list(range(k, k+i-j0))
             k += i - j0
-        self.node_idx_node_edge_pairs = torch.from_numpy(np.array(node_idx_node_edge_pairs, dtype=np.int32)).to(device)
+        self.node_idx_node_edge_pairs = torch.from_numpy(np.array(node_idx_node_edge_pairs, dtype=np.long)).to(device)
         self.node_idx_node_edge_pairs.requires_grad = False
-        self.edge_idx_node_edge_pairs = torch.from_numpy(np.array(edge_idx_node_edge_pairs, dtype=np.int32)).to(device)
+        self.edge_idx_node_edge_pairs = torch.from_numpy(np.array(edge_idx_node_edge_pairs, dtype=np.long)).to(device)
         self.edge_idx_node_edge_pairs.requires_grad = False
 
         ####### making node-edge-node triple indices
@@ -65,13 +65,13 @@ class AutoRegressiveGraphConvLayer(nn.Module):
             k += i - j0
 
         self.node1_idx_node_edge_node_triples = torch.from_numpy(
-            np.array(node1_idx_node_edge_nodes_triples, dtype=np.int32)).to(device)
+            np.array(node1_idx_node_edge_nodes_triples, dtype=np.long)).to(device)
         self.node1_idx_node_edge_node_triples.requires_grad = False
         self.edge_idx_node_edge_node_triples = torch.from_numpy(
-            np.array(edge_idx_node_edge_nodes_triples, dtype=np.int32)).to(device)
+            np.array(edge_idx_node_edge_nodes_triples, dtype=np.long)).to(device)
         self.edge_idx_node_edge_node_triples.requires_grad = False
         self.node2_idx_node_edge_node_triples = torch.from_numpy(
-            np.array(node2_idx_node_edge_nodes_triples, dtype=np.int32)).to(device)
+            np.array(node2_idx_node_edge_nodes_triples, dtype=np.long)).to(device)
         self.node2_idx_node_edge_node_triples.requires_grad = False
 
         #######   linear layers for updating nodes
