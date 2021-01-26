@@ -141,6 +141,8 @@ def create(args):
     elif args.graph_type == 'citeseer_small':
         _, _, G = Graph_load(dataset='citeseer')
         G = max(nx.connected_component_subgraphs(G), key=len)
+        # tmp__ = (G.subgraph(c).copy() for c in connected_components(G))
+        # G = max(tmp__, key=len)
         G = nx.convert_node_labels_to_integers(G)
         graphs = []
         for i in range(G.number_of_nodes()):
