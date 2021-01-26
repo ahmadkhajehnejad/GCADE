@@ -85,6 +85,10 @@ dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size
                                              sampler=sample_strategy)
 
 
+print('Preparing dataset finished.')
+
 gcade_model = GCADEModel(args)
+
+print('Model initiated.')
 
 train(gcade_model, dataset_loader, args)

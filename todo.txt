@@ -1,0 +1,3 @@
+remove constatn random seed in main file
+two-layers aggregation in GCNs
+test other kinds of node input
