@@ -4,6 +4,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from layers import AutoRegressiveGraphConvLayer
 import numpy as np
 import time
+import sys
 
 class GCADEModel(nn.Module):
 
@@ -20,16 +21,18 @@ class GCADEModel(nn.Module):
         list_layer_sizes = args.list_layer_sizes()
 
         self.num_layers = len(list_layer_sizes)
-        for i, layer_size in enumerate(list_layer_sizes):
+        for i, layer_info in enumerate(list_layer_sizes):
             setattr(self, 'lay_' + str(i), AutoRegressiveGraphConvLayer(args.max_num_node, args.max_prev_node,
-                                                                        layer_size['input_features_nodes'],
-                                                                        layer_size['input_features_edges'],
-                                                                        layer_size['agg_features_nodes'],
-                                                                        layer_size['agg_features_edges'],
-                                                                        layer_size['output_features_nodes'],
-                                                                        layer_size['output_features_edges'],
-                                                                        nn.ReLU(), nn.ReLU(),
-                                                                        exclude_last=(i == len(list_layer_sizes) - 1), device=args.device))
+                                                                        layer_info['input_features_nodes'],
+                                                                        layer_info['input_features_edges'],
+                                                                        layer_info['agg_features_nodes'],
+                                                                        layer_info['agg_features_edges'],
+                                                                        layer_info['output_features_nodes'],
+                                                                        layer_info['output_features_edges'],
+                                                                        layer_info['activation_nodes'],
+                                                                        layer_info['activation_edges'],
+                                                                        exclude_last=(i == len(list_layer_sizes) - 1),
+                                                                        device=args.device))
 
     def forward(self, input_nodes, input_edges):
         output_nodes, output_edges = input_nodes, input_edges
@@ -38,7 +41,13 @@ class GCADEModel(nn.Module):
             output_nodes, output_edges = layer(output_nodes, output_edges)
         return output_nodes, output_edges
 
-def nll(input_nodes, input_edges, output_nodes, output_edges, len_):
+def nll(output_nodes, output_edges, input_nodes, input_edges, len_):
+
+    # print(output_nodes.min().item(), output_nodes.max().item(), input_nodes.min().item(), input_edges.max().item())
+
+    # output_nodes = output_nodes * 0.99 + 0.005
+    # output_edges = output_edges * 0.99 + 0.005
+
     max_n = input_nodes.size(1)
     batch_size = input_nodes.size(0)
     res = torch.zeros(batch_size)
@@ -48,15 +57,14 @@ def nll(input_nodes, input_edges, output_nodes, output_edges, len_):
         tmp_1 = torch.log(output_nodes[ind, i, 0])
         tmp_2 = torch.log(output_edges[ind, k:k+i, 0]) * input_edges[ind, k:k+i, 0] + \
             torch.log(1 - output_edges[ind, k:k+i, 0]) * (1 - input_edges[ind, k:k+i, 0])
-        res[ind] += tmp_1 + tmp_2
+        res[ind] += tmp_1 + tmp_2.sum(dim=1)
         k += i
 
         if i < max_n - 1:
             ind = torch.eq(len_, i+1)
             tmp = torch.log(1 - output_nodes[ind, i+1,0])
             res[ind] += tmp
-    return res
-
+    return -res.sum()
 
 def train(gcade_model, dataset_train, args):
 
@@ -72,7 +80,9 @@ def train(gcade_model, dataset_train, args):
         trsz = 0
         gcade_model.train()
         for i, data in enumerate(dataset_train, 0):
-            print(' #', i)
+            # print(' #', i)
+            print('.', end='')
+            sys.stdout.flush()
             input_nodes = data['input_nodes_features'].float().to(args.device)
             input_edges = data['input_edges_features'].float().to(args.device)
             len_ = data['len'].float().to(args.device)
@@ -80,6 +90,7 @@ def train(gcade_model, dataset_train, args):
             optimizer.zero_grad()
             pred_nodes, pred_edges = gcade_model(input_nodes, input_edges)
             loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_)
+            # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
             optimizer.step()
             scheduler.step()

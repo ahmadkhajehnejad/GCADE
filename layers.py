@@ -87,11 +87,10 @@ class AutoRegressiveGraphConvLayer(nn.Module):
             self.lin_agg_node_2 = nn.Linear(2 * self.num_agg_features_nodes, self.num_agg_features_nodes).to(device)
             self.last_lin_nodes = nn.Linear(self.num_agg_features_nodes + self.num_input_features_nodes,
                                             self.num_output_features_nodes).to(device)
-
         #### making indices for updating nodes
 
 
-        self.prev_nodes_idx = torch.zeros(self.n * self.m, requires_grad=False, dtype=torch.int32).to(device)
+        self.prev_nodes_idx = torch.zeros(self.n * self.m, requires_grad=False, dtype=torch.long).to(device)
         k = 0
         for i in range(self.n):
             t = min(i, self.m)
@@ -107,7 +106,11 @@ class AutoRegressiveGraphConvLayer(nn.Module):
         self.lin_agg_edge_1 = nn.Linear(self.num_input_features_nodes + self.num_input_features_edges,
                                         2 * self.num_agg_features_edges).to(device)
         self.lin_agg_edge_2 = nn.Linear(2 * self.num_agg_features_edges, self.num_agg_features_edges).to(device)
-        self.last_lin_edges = nn.Linear(self.num_agg_features_edges, self.num_output_features_edges).to(device)
+        if self.exclude_last:
+            self.last_lin_edges = nn.Linear(self.num_agg_features_edges, self.num_output_features_edges).to(device)
+        else:
+            self.last_lin_edges = nn.Linear(self.num_agg_features_edges + self.num_input_features_edges,
+                                            self.num_output_features_edges).to(device)
 
 
         #### making indices for updating edges
@@ -116,7 +119,7 @@ class AutoRegressiveGraphConvLayer(nn.Module):
         for i in range(n):
             self.n_e += min(i, self.m)
 
-        self.prev_edges_idx = torch.zeros(self.n_e * self.m, requires_grad=False, dtype=torch.int32).to(device)
+        self.prev_edges_idx = torch.zeros(self.n_e * self.m, requires_grad=False, dtype=torch.long).to(device)
         k = 0
         e = 0
         for i in range(self.n):
@@ -142,17 +145,37 @@ class AutoRegressiveGraphConvLayer(nn.Module):
 
         batch_size = input_nodes.size(0)
 
-        node_edge_pairs = torch.cat( [ input_nodes[:, self.node_idx_node_edge_pairs, :],
-                                       input_edges[:, self.edge_idx_node_edge_pairs,:] ], dim=2)
 
+        node_edge_pairs = torch.cat([input_nodes[:, self.node_idx_node_edge_pairs, :],
+                                     input_edges[:, self.edge_idx_node_edge_pairs, :]], dim=2)
         node_edge_pairs = node_edge_pairs.view(-1, node_edge_pairs.size(2))
-        node_edge_aggs = torch.nn.ReLU()(self.lin_agg_node_2(torch.nn.ReLU()(self.lin_agg_node_1(node_edge_pairs))))
-        node_edge_aggs = node_edge_aggs.view([batch_size, -1, node_edge_aggs.size(1)])
-        node_edge_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_aggs.size(2)), node_edge_aggs], dim=1)
 
-        prev_nodes_aggs = node_edge_aggs[:, self.prev_nodes_idx, :].view([batch_size, self.n, self.m, -1])
-        prev_nodes_aggs = prev_nodes_aggs.sum(dim=2) * torch.tile(self.agg_normalization_node.view(1, -1, 1),
-                                                                  [batch_size, 1, prev_nodes_aggs.size(2)])
+        node_edge_node_triples = torch.cat([input_nodes[:, self.node1_idx_node_edge_node_triples, :],
+                                            input_edges[:, self.edge_idx_node_edge_node_triples, :],
+                                            input_nodes[:, self.node2_idx_node_edge_node_triples, :]], dim=2)
+        node_edge_node_triples = node_edge_node_triples.view([-1, node_edge_node_triples.size(2)])
+
+
+        ### Update nodes
+
+
+        # print('\n\n-----------------', self.exclude_last, '------------------------\n\n')
+        # print('\n\n-----------------', node_edge_node_triples.size(), '------------------------\n\n')
+        # print('\n\n-----------------', self.lin_agg_node_1, '------------------------\n\n')
+
+        if self.exclude_last:
+            node_edge_aggs = torch.nn.ReLU()(self.lin_agg_node_2(torch.nn.ReLU()(self.lin_agg_node_1(node_edge_pairs))))
+            node_edge_aggs = node_edge_aggs.view([batch_size, -1, node_edge_aggs.size(1)])
+            node_edge_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_aggs.size(2)), node_edge_aggs], dim=1)
+            tmp_aggs = node_edge_aggs
+        else:
+            node_edge_node_aggs = torch.nn.ReLU()(self.lin_agg_node_2(torch.nn.ReLU()(self.lin_agg_node_1(node_edge_node_triples))))
+            node_edge_node_aggs = node_edge_node_aggs.view([batch_size, -1, node_edge_node_aggs.size(1)])
+            node_edge_node_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_node_aggs.size(2)), node_edge_node_aggs], dim=1)
+            tmp_aggs = node_edge_node_aggs
+        prev_nodes_aggs = tmp_aggs[:, self.prev_nodes_idx, :].view([batch_size, self.n, self.m, -1])
+        prev_nodes_aggs = prev_nodes_aggs.sum(dim=2) * self.agg_normalization_node.view(1, -1, 1).repeat(
+                                                                        batch_size, 1, prev_nodes_aggs.size(3))
 
         if self.exclude_last:
             nodes_net_input = prev_nodes_aggs
@@ -162,19 +185,15 @@ class AutoRegressiveGraphConvLayer(nn.Module):
 
         output_nodes = self.activation_nodes(self.last_lin_nodes(nodes_net_input)).view([batch_size, self.n, -1])
 
-        node_edge_node_triples = torch.cat([input_nodes[:, self.node1_idx_node_edge_nodes_triples, :],
-                                            input_edges[:, self.edge_idx_node_edge_node_triples, :],
-                                            input_nodes[:, self.node2_idx_node_edge_nodes_triples, :]], dim=2)
+        ### Update edges
 
-        node_edge_node_triples = node_edge_node_triples.view([-1, node_edge_node_triples.size(2)])
-        node_edge_node_aggs = torch.nn.ReLU()(self.lin_agg_edge_2(torch.nn.ReLU()(self.lin_agg_edge_1(node_edge_node_triples))))
+        node_edge_aggs = torch.nn.ReLU()(self.lin_agg_edge_2(torch.nn.ReLU()(self.lin_agg_edge_1(node_edge_pairs))))
+        node_edge_aggs = node_edge_aggs.view([batch_size, -1, node_edge_aggs.size(1)])
+        node_edge_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_aggs.size(2)), node_edge_aggs], dim=1)
 
-        node_edge_node_aggs = node_edge_node_aggs.view([batch_size, -1, node_edge_node_aggs.size(1)])
-        node_edge_node_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_node_aggs.size(2)), node_edge_node_aggs], dim=1)
-
-        prev_edges_aggs = node_edge_node_aggs[:, self.prev_edges_idx, :].view([batch_size, -1, self.m, node_edge_node_aggs.size(2)])
-        prev_edges_aggs = prev_edges_aggs.sum(dim=2) * torch.tile(self.agg_normalization_edge.view(1, -1, 1),
-                                                                  [batch_size, 1, prev_nodes_aggs.size(2)])
+        prev_edges_aggs = node_edge_aggs[:, self.prev_edges_idx, :].view([batch_size, -1, self.m, node_edge_aggs.size(2)])
+        prev_edges_aggs = prev_edges_aggs.sum(dim=2) * self.agg_normalization_edge.view(1, -1, 1).repeat(
+                                                                        batch_size, 1, prev_edges_aggs.size(3))
 
         if self.exclude_last:
             edges_net_input = prev_edges_aggs

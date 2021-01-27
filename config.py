@@ -18,8 +18,8 @@ class Args():
         # self.graph_type = 'enzymes_small'
         # self.graph_type = 'barabasi'
         # self.graph_type = 'barabasi_small'
-        self.graph_type = 'citeseer'
-        # self.graph_type = 'citeseer_small'
+        # self.graph_type = 'citeseer'
+        self.graph_type = 'citeseer_small'
 
         # self.graph_type = 'barabasi_noise'
         # self.noise = 10
@@ -44,7 +44,7 @@ class Args():
         self.epochs_log = 100
         self.epochs_save = 100
 
-        self.lr = 0.003
+        self.lr = 0.003 #0.003
         self.milestones = [400, 1000]
         self.lr_rate = 0.3
 
