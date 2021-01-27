@@ -59,6 +59,8 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, device):
     k = 0
     for i in range(max_n):
         ind = torch.gt(len_, i)
+        # if i < 5:
+        #     print(i, ind.sum().item(), output_nodes[ind, i, 0].mean().item())
         tmp_1 = torch.log(output_nodes[ind, i, 0])
         tmp_2 = torch.log(output_edges[ind, k:k+i, 0]) * input_edges[ind, k:k+i, 0] + \
             torch.log(1 - output_edges[ind, k:k+i, 0]) * (1 - input_edges[ind, k:k+i, 0])
@@ -95,12 +97,15 @@ def generate_graph(model, args):
         for j in range(t):
             # print('                     j:', j)
             _, output_edges = model(input_nodes, input_edges)
-            ind = torch.lt( output_edges[:,e,0], torch.rand(args.test_batch_size).to(args.device))
+            ind = torch.lt( torch.rand(args.test_batch_size).to(args.device), output_edges[:,e,0])
             input_edges[ind,e,0] = 1
             e += 1
         output_nodes, _ = model(input_nodes, input_edges)
-        ind = torch.lt( output_nodes[:,i,0], torch.rand(args.test_batch_size).to(args.device))
+        ind = torch.lt( torch.rand(args.test_batch_size).to(args.device), output_nodes[:,i,0])
         input_nodes[ind,i,0] = 1
+        # print(i, ind.sum().item(), input_nodes[:,i,0].sum().item())
+        # print(output_nodes[:,i,0], '\n')
+        # input()
 
     # save graphs as pickle
     G_pred_list = []

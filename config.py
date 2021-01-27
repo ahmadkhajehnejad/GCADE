@@ -51,8 +51,8 @@ class Args():
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32  # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epochs = 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 1000 # 100
-        self.epochs_test = 1 # 10 # 100
+        self.epochs_test_start = 3 # 100
+        self.epochs_test = 5 # 100
         self.epochs_log = 100
         self.epochs_save = 100
 
@@ -77,7 +77,7 @@ class Args():
         #     self.hidden_size_rnn) + '_test_'
         # self.fname_baseline = self.graph_save_path + self.graph_type + self.generator_baseline + '_' + self.metric_baseline
 
-        self.feed_node_id = False
+        self.feed_node_id = True
 
     def list_layer_sizes(self):
         if self.feed_node_id:
