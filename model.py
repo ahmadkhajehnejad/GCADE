@@ -66,6 +66,12 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, device):
             res[ind] += tmp
     return -res.sum()
 
+
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
+
+
 def train(gcade_model, dataset_train, args):
 
     # initialize optimizer
@@ -98,8 +104,8 @@ def train(gcade_model, dataset_train, args):
             running_loss += loss.item()
             trsz += input_nodes.size(0)
 
-        print('[epoch %d]     loss: %.3f' %
-              (epoch + 1, running_loss / trsz))
+        print('[epoch %d]     loss: %.3f                lr: %f' %
+              (epoch + 1, running_loss / trsz, get_lr(optimizer)))
         time_end = time.time()
         time_all[epoch - 1] = time_end - time_start
     #     # test
