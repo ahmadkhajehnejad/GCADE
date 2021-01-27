@@ -166,12 +166,12 @@ class AutoRegressiveGraphConvLayer(nn.Module):
         if self.exclude_last:
             node_edge_aggs = torch.nn.ReLU()(self.lin_agg_node_2(torch.nn.ReLU()(self.lin_agg_node_1(node_edge_pairs))))
             node_edge_aggs = node_edge_aggs.view([batch_size, -1, node_edge_aggs.size(1)])
-            node_edge_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_aggs.size(2)), node_edge_aggs], dim=1)
+            node_edge_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_aggs.size(2)).to(self.device), node_edge_aggs], dim=1)
             tmp_aggs = node_edge_aggs
         else:
             node_edge_node_aggs = torch.nn.ReLU()(self.lin_agg_node_2(torch.nn.ReLU()(self.lin_agg_node_1(node_edge_node_triples))))
             node_edge_node_aggs = node_edge_node_aggs.view([batch_size, -1, node_edge_node_aggs.size(1)])
-            node_edge_node_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_node_aggs.size(2)), node_edge_node_aggs], dim=1)
+            node_edge_node_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_node_aggs.size(2)).to(self.device), node_edge_node_aggs], dim=1)
             tmp_aggs = node_edge_node_aggs
         prev_nodes_aggs = tmp_aggs[:, self.prev_nodes_idx, :].view([batch_size, self.n, self.m, -1])
         prev_nodes_aggs = prev_nodes_aggs.sum(dim=2) * self.agg_normalization_node.view(1, -1, 1).repeat(
@@ -189,7 +189,7 @@ class AutoRegressiveGraphConvLayer(nn.Module):
 
         node_edge_aggs = torch.nn.ReLU()(self.lin_agg_edge_2(torch.nn.ReLU()(self.lin_agg_edge_1(node_edge_pairs))))
         node_edge_aggs = node_edge_aggs.view([batch_size, -1, node_edge_aggs.size(1)])
-        node_edge_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_aggs.size(2)), node_edge_aggs], dim=1)
+        node_edge_aggs = torch.cat([torch.zeros(batch_size, 1, node_edge_aggs.size(2)).to(self.device), node_edge_aggs], dim=1)
 
         prev_edges_aggs = node_edge_aggs[:, self.prev_edges_idx, :].view([batch_size, -1, self.m, node_edge_aggs.size(2)])
         prev_edges_aggs = prev_edges_aggs.sum(dim=2) * self.agg_normalization_edge.view(1, -1, 1).repeat(

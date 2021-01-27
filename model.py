@@ -41,7 +41,7 @@ class GCADEModel(nn.Module):
             output_nodes, output_edges = layer(output_nodes, output_edges)
         return output_nodes, output_edges
 
-def nll(output_nodes, output_edges, input_nodes, input_edges, len_):
+def nll(output_nodes, output_edges, input_nodes, input_edges, len_, device):
 
     # print(output_nodes.min().item(), output_nodes.max().item(), input_nodes.min().item(), input_edges.max().item())
 
@@ -50,7 +50,7 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_):
 
     max_n = input_nodes.size(1)
     batch_size = input_nodes.size(0)
-    res = torch.zeros(batch_size)
+    res = torch.zeros(batch_size).to(device)
     k = 0
     for i in range(max_n):
         ind = torch.gt(len_, i)
@@ -89,7 +89,7 @@ def train(gcade_model, dataset_train, args):
 
             optimizer.zero_grad()
             pred_nodes, pred_edges = gcade_model(input_nodes, input_edges)
-            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_)
+            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_, args.device)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
             optimizer.step()
