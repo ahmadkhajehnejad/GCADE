@@ -231,6 +231,23 @@ def decode_adj(adj_output):
     return adj_full
 
 
+def my_decode_adj(nodes, edges, m):
+    '''
+        recover to adj from nodes and edges
+    '''
+
+    n = np.argmin(np.concatenate([nodes, [0]]))
+    adj_full = np.zeros([n,n])
+    e = 0
+    for i in range(n):
+        j0 = max(0, i-m)
+        adj_full[i, j0:i] = edges[e:e+i-j0]
+        adj_full[j0:i, i] = edges[e:e+i-j0]
+        e += i-j0
+
+    return adj_full
+
+
 def encode_adj_flexible(adj):
     '''
     return a flexible length of output

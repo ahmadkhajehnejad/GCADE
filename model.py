@@ -5,6 +5,11 @@ from layers import AutoRegressiveGraphConvLayer
 import numpy as np
 import time
 import sys
+#from utils import get_graph, save_graph_list
+import utils
+# from data import my_decode_adj
+import data
+
 
 class GCADEModel(nn.Module):
 
@@ -72,6 +77,39 @@ def get_lr(optimizer):
         return param_group['lr']
 
 
+def generate_graph(model, args):
+    model.eval()
+
+    first_layer = model.lay_0
+    tmp = np.concatenate([np.zeros([args.max_num_node, 1], dtype=np.float32), np.eye(args.max_num_node, dtype=np.float32)], axis=1)
+    input_nodes = torch.tensor(np.tile( np.expand_dims(tmp, axis=0), [args.test_batch_size, 1, 1])).to(args.device)
+    input_edges = torch.zeros(args.test_batch_size, first_layer.n_e, first_layer.num_input_features_edges).to(args.device)
+
+    e = 0
+    for i in range(args.max_num_node):
+        # print('           i:', i)
+        t = min(i, args.max_prev_node)
+        for j in range(t):
+            # print('                     j:', j)
+            _, output_edges = model(input_nodes, input_edges)
+            ind = torch.lt( output_edges[:,e,0], torch.rand(args.test_batch_size).to(args.device))
+            input_edges[ind,e,0] = 1
+            e += 1
+        output_nodes, _ = model(input_nodes, input_edges)
+        ind = torch.lt( output_nodes[:,i,0], torch.rand(args.test_batch_size).to(args.device))
+        input_nodes[ind,i,0] = 1
+
+    # save graphs as pickle
+    G_pred_list = []
+    for i in range(args.test_batch_size):
+        adj_pred = data.my_decode_adj(input_nodes[i,:,0].cpu().numpy(), input_edges[i,:,0].cpu().numpy(), args.max_prev_node)
+        G_pred = utils.get_graph(adj_pred) # get a graph from zero-padded adj
+        G_pred_list.append(G_pred)
+
+    return G_pred_list
+
+
+
 def train(gcade_model, dataset_train, args):
 
     # initialize optimizer
@@ -108,25 +146,20 @@ def train(gcade_model, dataset_train, args):
               (epoch + 1, running_loss / trsz, get_lr(optimizer)))
         time_end = time.time()
         time_all[epoch - 1] = time_end - time_start
-    #     # test
-    #     if epoch % args.epochs_test == 0 and epoch>=args.epochs_test_start:
-    #         for sample_time in range(1,4):
-    #             G_pred = []
-    #             while len(G_pred)<args.test_total_size:
-    #                 if 'GraphRNN_VAE' in args.note:
-    #                     G_pred_step = test_vae_epoch(epoch, args, rnn, output, test_batch_size=args.test_batch_size,sample_time=sample_time)
-    #                 elif 'GraphRNN_MLP' in args.note:
-    #                     G_pred_step = test_mlp_epoch(epoch, args, rnn, output, test_batch_size=args.test_batch_size,sample_time=sample_time)
-    #                 elif 'GraphRNN_RNN' in args.note:
-    #                     G_pred_step = test_rnn_epoch(epoch, args, rnn, output, test_batch_size=args.test_batch_size)
-    #                 G_pred.extend(G_pred_step)
-    #             # save graphs
-    #             fname = args.graph_save_path + args.fname_pred + str(epoch) +'_'+str(sample_time) + '.dat'
-    #             save_graph_list(G_pred, fname)
-    #             if 'GraphRNN_RNN' in args.note:
-    #                 break
-    #         print('test done, graphs saved')
-    #
+        # test
+        if epoch % args.epochs_test == 0 and epoch >= args.epochs_test_start:
+            for sample_time in range(1,4):
+                print('     sample_time:', sample_time)
+                G_pred = []
+                while len(G_pred)<args.test_total_size:
+                    print('        len(G_pred):', len(G_pred))
+                    G_pred_step = generate_graph(gcade_model, args)
+                    G_pred.extend(G_pred_step)
+                # save graphs
+                fname = args.graph_save_path + args.fname_pred + str(epoch) + '_' + str(sample_time) + '.dat'
+                utils.save_graph_list(G_pred, fname)
+            print('test done, graphs saved')
+
     #
     #     # save model checkpoint
     #     if args.save:
