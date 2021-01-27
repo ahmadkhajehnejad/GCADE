@@ -81,8 +81,11 @@ def generate_graph(model, args):
     model.eval()
 
     first_layer = model.lay_0
-    tmp = np.concatenate([np.zeros([args.max_num_node, 1], dtype=np.float32), np.eye(args.max_num_node, dtype=np.float32)], axis=1)
-    input_nodes = torch.tensor(np.tile( np.expand_dims(tmp, axis=0), [args.test_batch_size, 1, 1])).to(args.device)
+    if args.feed_node_id:
+        tmp = np.concatenate([np.zeros([args.max_num_node, 1], dtype=np.float32), np.eye(args.max_num_node, dtype=np.float32)], axis=1)
+        input_nodes = torch.tensor(np.tile( np.expand_dims(tmp, axis=0), [args.test_batch_size, 1, 1])).to(args.device)
+    else:
+        input_nodes = torch.zeros(args.test_batch_size, args.max_num_node, 1).to(args.device)
     input_edges = torch.zeros(args.test_batch_size, first_layer.n_e, first_layer.num_input_features_edges).to(args.device)
 
     e = 0
@@ -148,7 +151,7 @@ def train(gcade_model, dataset_train, args):
         time_all[epoch - 1] = time_end - time_start
         # test
         if epoch % args.epochs_test == 0 and epoch >= args.epochs_test_start:
-            for sample_time in range(1,4):
+            for sample_time in range(1,2): #4):
                 print('     sample_time:', sample_time)
                 G_pred = []
                 while len(G_pred)<args.test_total_size:

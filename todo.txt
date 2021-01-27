@@ -1,3 +1,4 @@
 remove constatn random seed in main file
 two-layers aggregation in GCNs
-test other kinds of node input  --->  change the code of graph_generation too.
+DONE  #####  test other kinds of node input  --->  change the code of graph_generation too.
+test different order (first node, after that edges)

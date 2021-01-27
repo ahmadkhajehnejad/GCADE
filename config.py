@@ -45,19 +45,19 @@ class Args():
 
         self.batch_size = 32  # normal: 32, and the rest should be changed accordingly
         self.test_batch_size = 32
-        self.test_total_size = 100 # 1000
+        self.test_total_size = 30 # 1000
 
         ### training config
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32  # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epochs = 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 10 # 100
-        self.epochs_test = 10 # 100
+        self.epochs_test_start = 1000 # 100
+        self.epochs_test = 1 # 10 # 100
         self.epochs_log = 100
         self.epochs_save = 100
 
         self.lr = 0.003 #0.003
-        self.milestones = [400, 1000]
+        self.milestones = [4000, 10000]
         self.lr_rate = 0.3
 
         self.sample_time = 2  # sample time in each time step, when validating
@@ -77,10 +77,16 @@ class Args():
         #     self.hidden_size_rnn) + '_test_'
         # self.fname_baseline = self.graph_save_path + self.graph_type + self.generator_baseline + '_' + self.metric_baseline
 
+        self.feed_node_id = False
+
     def list_layer_sizes(self):
+        if self.feed_node_id:
+            input_feature_nodes = self.max_num_node + 1
+        else:
+            input_feature_nodes = 1
         return [
             {
-                'input_features_nodes': self.max_num_node + 1, 'agg_features_nodes': 100, 'output_features_nodes': 100,
+                'input_features_nodes': input_feature_nodes, 'agg_features_nodes': 100, 'output_features_nodes': 100,
                 'input_features_edges': 1, 'agg_features_edges': 100, 'output_features_edges': 100,
                 'activation_nodes': nn.ReLU(), 'activation_edges': nn.ReLU()
             },

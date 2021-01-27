@@ -73,7 +73,7 @@ print('max previous node: {}'.format(args.max_prev_node))
 #         graph.remove_edge(edge[0],edge[1])
 
 ### dataset initialization
-dataset = MyGraph_sequence_sampler_pytorch(graphs_train, max_prev_node=args.max_prev_node,
+dataset = MyGraph_sequence_sampler_pytorch(graphs_train, args.feed_node_id, max_prev_node=args.max_prev_node,
                                              max_num_node=args.max_num_node)
 
 
