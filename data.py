@@ -237,6 +237,8 @@ def my_decode_adj(nodes, edges, m):
     '''
 
     n = np.argmin(np.concatenate([nodes, [0]]))
+    # n = nodes.size
+
     adj_full = np.zeros([n,n])
     e = 0
     for i in range(n):

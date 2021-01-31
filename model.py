@@ -46,26 +46,34 @@ class GCADEModel(nn.Module):
             output_nodes, output_edges = layer(output_nodes, output_edges)
         return output_nodes, output_edges
 
-def nll(output_nodes, output_edges, input_nodes, input_edges, len_, device):
+def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args):
 
     # print(output_nodes.min().item(), output_nodes.max().item(), input_nodes.min().item(), input_edges.max().item())
 
     # output_nodes = output_nodes * 0.99 + 0.005
     # output_edges = output_edges * 0.99 + 0.005
 
-    max_n = input_nodes.size(1)
+    max_n = args.max_num_node
     batch_size = input_nodes.size(0)
-    res = torch.zeros(batch_size).to(device)
+    res = torch.zeros(batch_size).to(args.device)
     k = 0
     for i in range(max_n):
         ind = torch.gt(len_, i)
+        # ind = torch.gt(len_, 0)
+
         # if i < 5:
         #     print(i, ind.sum().item(), output_nodes[ind, i, 0].mean().item())
+
         tmp_1 = torch.log(output_nodes[ind, i, 0])
-        tmp_2 = torch.log(output_edges[ind, k:k+i, 0]) * input_edges[ind, k:k+i, 0] + \
-            torch.log(1 - output_edges[ind, k:k+i, 0]) * (1 - input_edges[ind, k:k+i, 0])
-        res[ind] += tmp_1 + tmp_2.sum(dim=1)
-        k += i
+        t = min(i, args.max_prev_node)
+        tmp_2 = torch.log(output_edges[ind, k:k+t, 0]) * input_edges[ind, k:k+t, 0] + \
+            torch.log(1 - output_edges[ind, k:k+t, 0]) * (1 - input_edges[ind, k:k+t, 0])
+        # print(list(zip(input_edges[ind, k:k+t], output_edges[ind, k:k+t])))
+        # print(i, ind.sum().item(), input_edges[ind, k:k + t, 0].sum(dim=1).mean().item(),
+        #                         output_edges[ind, k:k + t].sum(dim=1).mean().item())
+        # input()
+        res[ind] += tmp_2.sum(dim=1) + tmp_1
+        k += t
 
         if i < max_n - 1:
             ind = torch.eq(len_, i+1)
@@ -141,7 +149,7 @@ def train(gcade_model, dataset_train, args):
 
             optimizer.zero_grad()
             pred_nodes, pred_edges = gcade_model(input_nodes, input_edges)
-            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_, args.device)
+            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_, args)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
             optimizer.step()
