@@ -189,7 +189,7 @@ class AutoRegressiveGraphConvLayer(nn.Module):
             nodes_net_input = torch.cat([prev_nodes_aggs, input_nodes], dim=2)
         nodes_net_input = nodes_net_input.view([-1, nodes_net_input.size(2)])
 
-        output_nodes = self.activation_nodes(self.last_lin_nodes_2(torch.nn.ReLU()(self.last_lin_1(nodes_net_input)))).view([batch_size, self.n, -1])
+        output_nodes = self.activation_nodes(self.last_lin_nodes_2(torch.nn.ReLU()(self.last_lin_nodes_1(nodes_net_input)))).view([batch_size, self.n, -1])
 
         ### Update edges
 
