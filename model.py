@@ -72,13 +72,15 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args):
         # print(i, ind.sum().item(), input_edges[ind, k:k + t, 0].sum(dim=1).mean().item(),
         #                         output_edges[ind, k:k + t].sum(dim=1).mean().item())
         # input()
-        res[ind] += tmp_2.sum(dim=1) + tmp_1
+        p_ = 0
+        res[ind] += (args.max_num_node - i) ** p_ * (tmp_2.sum(dim=1) + tmp_1)
         k += t
 
         if i < max_n - 1:
             ind = torch.eq(len_, i+1)
             tmp = torch.log(1 - output_nodes[ind, i+1,0])
-            res[ind] += tmp
+            res[ind] += (args.max_num_node - i) ** p_ * tmp
+
     return -res.sum()
 
 

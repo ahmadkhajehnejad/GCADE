@@ -80,13 +80,16 @@ class AutoRegressiveGraphConvLayer(nn.Module):
             self.lin_agg_node_1 = nn.Linear(self.num_input_features_nodes + self.num_input_features_edges,
                                             2 * self.num_agg_features_nodes).to(device)
             self.lin_agg_node_2 = nn.Linear(2 * self.num_agg_features_nodes, self.num_agg_features_nodes).to(device)
-            self.last_lin_nodes = nn.Linear(self.num_agg_features_nodes, self.num_output_features_nodes).to(device)
+            self.last_lin_nodes_1 = nn.Linear(self.num_agg_features_nodes, self.num_agg_features_nodes).to(device)
+            self.last_lin_nodes_2 = nn.Linear(self.num_agg_features_nodes, self.num_output_features_nodes).to(device)
         else:
             self.lin_agg_node_1 = nn.Linear(2 * self.num_input_features_nodes + self.num_input_features_edges,
                                             2 * self.num_agg_features_nodes).to(device)
             self.lin_agg_node_2 = nn.Linear(2 * self.num_agg_features_nodes, self.num_agg_features_nodes).to(device)
-            self.last_lin_nodes = nn.Linear(self.num_agg_features_nodes + self.num_input_features_nodes,
-                                            self.num_output_features_nodes).to(device)
+            self.last_lin_nodes_1 = nn.Linear(self.num_agg_features_nodes + self.num_input_features_nodes,
+                                            self.num_agg_features_nodes + self.num_input_features_nodes).to(device)
+            self.last_lin_nodes_2 = nn.Linear(self.num_agg_features_nodes + self.num_input_features_nodes,
+                                              self.num_output_features_nodes).to(device)
         #### making indices for updating nodes
 
 
@@ -107,9 +110,12 @@ class AutoRegressiveGraphConvLayer(nn.Module):
                                         2 * self.num_agg_features_edges).to(device)
         self.lin_agg_edge_2 = nn.Linear(2 * self.num_agg_features_edges, self.num_agg_features_edges).to(device)
         if self.exclude_last:
-            self.last_lin_edges = nn.Linear(self.num_agg_features_edges, self.num_output_features_edges).to(device)
+            self.last_lin_edges_1 = nn.Linear(self.num_agg_features_edges, self.num_agg_features_edges).to(device)
+            self.last_lin_edges_2 = nn.Linear(self.num_agg_features_edges, self.num_output_features_edges).to(device)
         else:
-            self.last_lin_edges = nn.Linear(self.num_agg_features_edges + self.num_input_features_edges,
+            self.last_lin_edges_1 = nn.Linear(self.num_agg_features_edges + self.num_input_features_edges,
+                                            self.num_agg_features_edges + self.num_input_features_edges).to(device)
+            self.last_lin_edges_2 = nn.Linear(self.num_agg_features_edges + self.num_input_features_edges,
                                             self.num_output_features_edges).to(device)
 
 
@@ -183,7 +189,7 @@ class AutoRegressiveGraphConvLayer(nn.Module):
             nodes_net_input = torch.cat([prev_nodes_aggs, input_nodes], dim=2)
         nodes_net_input = nodes_net_input.view([-1, nodes_net_input.size(2)])
 
-        output_nodes = self.activation_nodes(self.last_lin_nodes(nodes_net_input)).view([batch_size, self.n, -1])
+        output_nodes = self.activation_nodes(self.last_lin_nodes_2(torch.nn.ReLU()(self.last_lin_1(nodes_net_input)))).view([batch_size, self.n, -1])
 
         ### Update edges
 
@@ -201,7 +207,7 @@ class AutoRegressiveGraphConvLayer(nn.Module):
             edges_net_input = torch.cat([prev_edges_aggs, input_edges], dim=2)
         edges_net_input = edges_net_input.view([-1, edges_net_input.size(2)])
 
-        output_edges = self.activation_edges(self.last_lin_edges(edges_net_input)).view([batch_size, self.n_e, -1])
+        output_edges = self.activation_edges(self.last_lin_edges_2(torch.nn.ReLU()(self.last_lin_edges_1(edges_net_input)))).view([batch_size, self.n_e, -1])
 
         return output_nodes, output_edges
 
