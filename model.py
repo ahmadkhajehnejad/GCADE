@@ -71,7 +71,7 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args):
         # print(list(zip(input_edges[ind, k:k+t], output_edges[ind, k:k+t])))
         # print(i, ind.sum().item(), input_edges[ind, k:k + t, 0].sum(dim=1).mean().item(),
         #                         output_edges[ind, k:k + t].sum(dim=1).mean().item())
-        # input()
+        # print(i, ind.sum().item(), tmp_1.mean().item(), output_nodes[ind, i].mean().item())  # tmp_2.mean().item())
         p_ = 0
         res[ind] += (args.max_num_node - i) ** p_ * (tmp_2.sum(dim=1) + tmp_1)
         k += t
@@ -80,7 +80,7 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args):
             ind = torch.eq(len_, i+1)
             tmp = torch.log(1 - output_nodes[ind, i+1,0])
             res[ind] += (args.max_num_node - i) ** p_ * tmp
-
+    # input()
     return -res.sum()
 
 
