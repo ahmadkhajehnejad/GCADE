@@ -78,16 +78,21 @@ class Args():
         # self.fname_baseline = self.graph_save_path + self.graph_type + self.generator_baseline + '_' + self.metric_baseline
 
         self.feed_node_id = True
+        self.feed_edge_id = True
 
     def list_layer_sizes(self):
         if self.feed_node_id:
             input_feature_nodes = self.max_num_node + 1
         else:
             input_feature_nodes = 1
+        if self.feed_edge_id:
+            input_feature_edges = 2 * self.max_num_node + 1
+        else:
+            input_feature_edges = 1
         return [
             {
                 'input_features_nodes': input_feature_nodes, 'agg_features_nodes': 100, 'output_features_nodes': 100,
-                'input_features_edges': 1, 'agg_features_edges': 100, 'output_features_edges': 100,
+                'input_features_edges': input_feature_edges, 'agg_features_edges': 100, 'output_features_edges': 100,
                 'activation_nodes': nn.ReLU(), 'activation_edges': nn.ReLU()
             },
             {

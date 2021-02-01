@@ -475,8 +475,9 @@ def test_encode_decode_adj_full():
 #         return max_prev_node
 
 class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
-    def __init__(self, G_list, feed_node_id, max_num_node=None, max_prev_node=None, iteration=20000):
-        self.feed_node_id = feed_node_id
+    def __init__(self, G_list, args, max_num_node=None, max_prev_node=None, iteration=20000):
+        self.feed_node_id = args.feed_node_id
+        self.feed_edge_id = args.feed_edge_id
         self.adj_all = []
         self.len_all = []
         for G in G_list:
@@ -530,12 +531,18 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
             nodes_features = np.zeros([self.n, 1])
             nodes_features[:len_batch, 0] = 1
 
-        edges_features = np.zeros([self.e, 1])
+        if self.feed_edge_id:
+            edges_features = np.zeros([self.e, 1 + 2*self.n])
+        else:
+            edges_features = np.zeros([self.e, 1])
         k = 0
         for i in range(len_batch):
             for j in range(max(0, i-self.max_prev_node), i):
                 if adj_copy[j,i] == 1:
                     edges_features[k,0] = 1
+                if self.feed_edge_id:
+                    edges_features[k, 1 + j] = 1
+                    edges_features[k, 1 + self.n + i] = 1
                 k += 1
 
         return {'input_nodes_features': nodes_features, 'input_edges_features': edges_features,

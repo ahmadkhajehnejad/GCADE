@@ -98,7 +98,18 @@ def generate_graph(model, args):
         input_nodes = torch.tensor(np.tile( np.expand_dims(tmp, axis=0), [args.test_batch_size, 1, 1])).to(args.device)
     else:
         input_nodes = torch.zeros(args.test_batch_size, args.max_num_node, 1).to(args.device)
-    input_edges = torch.zeros(args.test_batch_size, first_layer.n_e, first_layer.num_input_features_edges).to(args.device)
+    if args.feed_edge_id:
+        tmp = np.zeros([model.lay_0.n_e, 1 + 2*args.max_num_node], dtype=np.float32)
+        k = 0
+        for i in range(args.max_num_node):
+            for j in range(max(0, i-args.max_prev_node), i):
+                tmp[k, 1 + j] = 1
+                tmp[k, 1 + args.max_num_node + i] = 1
+                k += 1
+        assert k == model.lay_0.n_e
+        input_edges = torch.tensor(np.tile(np.expand_dims(tmp, axis=0), [args.test_batch_size, 1, 1])).to(args.device)
+    else:
+        input_edges = torch.zeros(args.test_batch_size, first_layer.n_e, first_layer.num_input_features_edges).to(args.device)
 
     e = 0
     for i in range(args.max_num_node):
