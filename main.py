@@ -6,22 +6,31 @@ from data import MyGraph_sequence_sampler_pytorch
 from config import Args
 import numpy as np
 from model import GCADEModel, train
+import numpy as np
+import torch
 
 
 # if __name__ == '__main__':
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+random.seed(123)
+np.random.seed(123)
+torch.manual_seed(123)
+
 args = Args()
 graphs = create_graphs.create(args)
 
 # split datasets
-random.seed(123)
 random.shuffle(graphs)
 graphs_len = len(graphs)
 graphs_test = graphs[int(0.8 * graphs_len):]
 graphs_train = graphs[0:int(0.8 * graphs_len)]
 graphs_validate = graphs[0:int(0.2 * graphs_len)]
+
+# print([(len(list(g.nodes)), len(list(g.edges))) for g in graphs_train])
+# print('---------------------------\n\n')
+# input()
 
 # if use pre-saved graphs
 # dir_input = "/dfs/scratch0/jiaxuany0/graphs/"
