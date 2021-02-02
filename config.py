@@ -92,17 +92,23 @@ class Args():
         return [
             {
                 'input_features_nodes': input_feature_nodes, 'agg_features_nodes': 100, 'output_features_nodes': 100,
+                'num_aggregation_layers_nodes': 10, 'num_last_linear_layers_nodes': 10,
                 'input_features_edges': input_feature_edges, 'agg_features_edges': 100, 'output_features_edges': 100,
+                'num_aggregation_layers_edges': 10, 'num_last_linear_layers_edges': 10,
                 'activation_nodes': nn.ReLU(), 'activation_edges': nn.ReLU()
             },
             {
                 'input_features_nodes': 100, 'agg_features_nodes': 100, 'output_features_nodes': 50,
+                'num_aggregation_layers_nodes': 10, 'num_last_linear_layers_nodes': 10,
                 'input_features_edges': 100, 'agg_features_edges': 100, 'output_features_edges': 50,
+                'num_aggregation_layers_edges': 10, 'num_last_linear_layers_edges': 10,
                 'activation_nodes': nn.ReLU(), 'activation_edges': nn.ReLU()
             },
             {
                 'input_features_nodes': 50, 'agg_features_nodes': 50, 'output_features_nodes': 1,
+                'num_aggregation_layers_nodes': 10, 'num_last_linear_layers_nodes': 10,
                 'input_features_edges': 50, 'agg_features_edges': 50, 'output_features_edges': 1,
+                'num_aggregation_layers_edges': 10, 'num_last_linear_layers_edges': 10,
                 'activation_nodes': nn.Sigmoid(), 'activation_edges': nn.Sigmoid()
             },
         ]
