@@ -46,7 +46,7 @@ class GCADEModel(nn.Module):
             output_nodes, output_edges = layer(output_nodes, output_edges)
         return output_nodes, output_edges
 
-def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args):
+def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args, batch_num):
 
     # print(output_nodes.min().item(), output_nodes.max().item(), input_nodes.min().item(), input_edges.max().item())
 
@@ -68,19 +68,28 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args):
         t = min(i, args.max_prev_node)
         tmp_2 = torch.log(output_edges[ind, k:k+t, 0]) * input_edges[ind, k:k+t, 0] + \
             torch.log(1 - output_edges[ind, k:k+t, 0]) * (1 - input_edges[ind, k:k+t, 0])
-        # print(list(zip(input_edges[ind, k:k+t], output_edges[ind, k:k+t])))
+        # if i == 1 and batch_num == 31 and ind.sum().item() > 0:
+        #     print('\n', i,
+        #     list(zip(list(input_edges[ind, k:k+t, 0][0].detach().cpu().numpy()), list(output_edges[ind, k:k+t, 0][0].detach().cpu().numpy()), tmp_2[0].detach().cpu().numpy())),
+                  # tmp_2[0].mean().item(),
+                  # input_edges[ind, k:k+t, 0][0].mean().item(),
+                  # output_edges[ind, k:k + t, 0][0].mean().item())
+        # print('\n', i, input_edges[ind, k:k+t, 0][0].size(), output_edges[ind, k:k+t,0][0].detach().cpu().numpy().shape)
+        # print('\n', i, ind.size(), input_edges.size(), input_edges[ind].size())
         # print(i, ind.sum().item(), input_edges[ind, k:k + t, 0].sum(dim=1).mean().item(),
         #                         output_edges[ind, k:k + t].sum(dim=1).mean().item())
         # print(i, ind.sum().item(), tmp_1.mean().item(), output_nodes[ind, i].mean().item())  # tmp_2.mean().item())
         p_ = 0
-        res[ind] += (args.max_num_node - i) ** p_ * (tmp_2.sum(dim=1) + tmp_1)
+        res[ind] += (1 / (i+1)) ** p_ * (tmp_2.sum(dim=1) + tmp_1)
         k += t
 
         if i < max_n - 1:
             ind = torch.eq(len_, i+1)
             tmp = torch.log(1 - output_nodes[ind, i+1,0])
-            res[ind] += (args.max_num_node - i) ** p_ * tmp
-    # input()
+            res[ind] += (1 / (i+1)) ** p_ * tmp
+    # if batch_num == 31:
+        # print('\n')
+        # input()
     return -res.sum()
 
 
@@ -162,7 +171,7 @@ def train(gcade_model, dataset_train, args):
 
             optimizer.zero_grad()
             pred_nodes, pred_edges = gcade_model(input_nodes, input_edges)
-            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_, args)
+            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_, args, i)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
             optimizer.step()
