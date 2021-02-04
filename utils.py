@@ -41,13 +41,15 @@ def caveman_special(c=2,k=20,p_path=0.1,p_edge=0.3):
         u = np.random.randint(0, k)
         v = np.random.randint(k, k * 2)
         G.add_edge(u, v)
-    G = max(nx.connected_component_subgraphs(G), key=len)
+    G = max([G.subgraph(c).copy() for c in nx.connected_components(G)], key=len)
+    # G = max(nx.connected_component_subgraphs(G), key=len)
     return G
 
 def n_community(c_sizes, p_inter=0.01):
     graphs = [nx.gnp_random_graph(c_sizes[i], 0.7, seed=i) for i in range(len(c_sizes))]
     G = nx.disjoint_union_all(graphs)
-    communities = list(nx.connected_component_subgraphs(G))
+    # communities = list(nx.connected_component_subgraphs(G))
+    communities = [G.subgraph(c).copy() for c in nx.connected_components(G)]
     for i in range(len(communities)):
         subG1 = communities[i]
         nodes1 = list(subG1.nodes())

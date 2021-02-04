@@ -5,8 +5,8 @@ class Args():
     def __init__(self):
 
         ### Which dataset is used to train the model
-        # self.graph_type = 'DD'
-        # self.graph_type = 'caveman'
+        # self.graph_type = 'DD'    ### protein
+        # self.graph_type = 'caveman'  ### Community ??
         # self.graph_type = 'caveman_small'
         # self.graph_type = 'caveman_small_single'
         # self.graph_type = 'community4'
@@ -18,8 +18,8 @@ class Args():
         # self.graph_type = 'enzymes_small'
         # self.graph_type = 'barabasi'
         # self.graph_type = 'barabasi_small'
-        # self.graph_type = 'citeseer'
-        self.graph_type = 'citeseer_small'
+        # self.graph_type = 'citeseer'             ### Ego
+        self.graph_type = 'citeseer_small'       ### Ego-small
 
         # self.graph_type = 'barabasi_noise'
         # self.noise = 10
@@ -89,28 +89,30 @@ class Args():
             input_feature_edges = 2 * self.max_num_node + 1
         else:
             input_feature_edges = 1
+        num_l = 2
         return [
             {
                 'input_features_nodes': input_feature_nodes, 'agg_features_nodes': 100, 'output_features_nodes': 100,
-                'num_aggregation_layers_nodes': 10, 'num_last_linear_layers_nodes': 10,
+                'num_aggregation_layers_nodes': num_l, 'num_last_linear_layers_nodes': num_l,
                 'input_features_edges': input_feature_edges, 'agg_features_edges': 100, 'output_features_edges': 100,
-                'num_aggregation_layers_edges': 10, 'num_last_linear_layers_edges': 10,
+                'num_aggregation_layers_edges': num_l, 'num_last_linear_layers_edges': num_l,
                 'activation_nodes': nn.ReLU(), 'activation_edges': nn.ReLU()
             },
             {
                 'input_features_nodes': 100, 'agg_features_nodes': 100, 'output_features_nodes': 50,
-                'num_aggregation_layers_nodes': 10, 'num_last_linear_layers_nodes': 10,
+                'num_aggregation_layers_nodes': num_l, 'num_last_linear_layers_nodes': num_l,
                 'input_features_edges': 100, 'agg_features_edges': 100, 'output_features_edges': 50,
-                'num_aggregation_layers_edges': 10, 'num_last_linear_layers_edges': 10,
+                'num_aggregation_layers_edges': num_l, 'num_last_linear_layers_edges': num_l,
                 'activation_nodes': nn.ReLU(), 'activation_edges': nn.ReLU()
             },
             {
                 'input_features_nodes': 50, 'agg_features_nodes': 50, 'output_features_nodes': 1,
-                'num_aggregation_layers_nodes': 10, 'num_last_linear_layers_nodes': 10,
+                'num_aggregation_layers_nodes': num_l, 'num_last_linear_layers_nodes': num_l,
                 'input_features_edges': 50, 'agg_features_edges': 50, 'output_features_edges': 1,
-                'num_aggregation_layers_edges': 10, 'num_last_linear_layers_edges': 10,
+                'num_aggregation_layers_edges': num_l, 'num_last_linear_layers_edges': num_l,
                 'activation_nodes': nn.Sigmoid(), 'activation_edges': nn.Sigmoid()
             },
         ]
+
 
 
