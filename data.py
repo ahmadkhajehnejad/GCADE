@@ -545,6 +545,9 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
                     edges_features[k, 1 + self.n + i] = 1
                 k += 1
 
+        nodes_features[2:,:] = 0
+        edges_features[1:,:] = 0
+        len_batch = 2
         return {'input_nodes_features': nodes_features, 'input_edges_features': edges_features,
                 'output_nodes_features': nodes_features[:,0:1].copy(), 'output_edges_features': edges_features.copy(),
                 'len': len_batch}

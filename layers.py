@@ -227,7 +227,8 @@ class AutoRegressiveGraphConvLayer(nn.Module):
             nt = getattr(self, 'last_lin_nodes_' + str(i))
             tmp = torch.nn.ReLU()(nt(tmp))
         nt = getattr(self, 'last_lin_nodes_' + str(self.num_last_lin_layers_nodes - 1))
-        output_nodes = self.activation_nodes(nt(tmp)).view([batch_size, self.n, -1])
+        pre_output_nodes = nt(tmp).view([batch_size, self.n, -1])
+        output_nodes = self.activation_nodes(pre_output_nodes)
 
         ### Update edges
 
@@ -254,9 +255,10 @@ class AutoRegressiveGraphConvLayer(nn.Module):
             nt = getattr(self, 'last_lin_edges_' + str(i))
             tmp = torch.nn.ReLU()(nt(tmp))
         nt = getattr(self, 'last_lin_edges_' + str(self.num_last_lin_layers_edges - 1))
-        output_edges = self.activation_edges(nt(tmp)).view([batch_size, self.n_e, -1])
+        pre_output_edges = nt(tmp).view([batch_size, self.n_e, -1])
+        output_edges = self.activation_edges(pre_output_edges)
 
-        return output_nodes, output_edges
+        return output_nodes, output_edges, pre_output_nodes, pre_output_edges
 
 
 

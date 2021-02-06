@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.optim.lr_scheduler import MultiStepLR
 from layers import AutoRegressiveGraphConvLayer
 import numpy as np
@@ -47,15 +48,24 @@ class GCADEModel(nn.Module):
         output_nodes, output_edges = input_nodes, input_edges
         for i in range(self.num_layers):
             layer = getattr(self, 'lay_' + str(i))
-            output_nodes, output_edges = layer(output_nodes, output_edges)
-        return output_nodes, output_edges
+            output_nodes, output_edges, pre_output_nodes, pre_output_edges = layer(output_nodes, output_edges)
+        return output_nodes, output_edges, pre_output_nodes, pre_output_edges
 
-def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args, batch_num):
+def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args, batch_num, pre_output_nodes, pre_output_edges):
 
     # print(output_nodes.min().item(), output_nodes.max().item(), input_nodes.min().item(), input_edges.max().item())
 
     # output_nodes = output_nodes * 0.99 + 0.005
     # output_edges = output_edges * 0.99 + 0.005
+
+
+    if batch_num > 26:
+        print('batch_num=', batch_num)
+        print('input_nodes=', input_nodes[10,:3,:].detach().cpu().numpy())
+        print('input_edges=', input_edges[10,:3,:].detach().cpu().numpy())
+        print('output_nodes=', output_nodes[10,:3,:].detach().cpu().numpy())
+        print('output_edges=', output_edges[10,:3,:].detach().cpu().numpy())
+        print('len_=', len_[10].detach().cpu().numpy())
 
     max_n = args.max_num_node
     batch_size = input_nodes.size(0)
@@ -63,38 +73,51 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args, batch_
     k = 0
     for i in range(max_n):
         ind = torch.gt(len_, i)
+        if ind.sum() == 0:
+            break
         # ind = torch.gt(len_, 0)
 
         # if i < 5:
         #     print(i, ind.sum().item(), output_nodes[ind, i, 0].mean().item())
 
-        tmp_1 = torch.log(output_nodes[ind, i, 0])
+        tmp_1 = -torch.log(output_nodes[ind, i, 0])
+        # tmp_1 = F.binary_cross_entropy(output_nodes[ind, i, 0], torch.ones(ind.sum(), requires_grad=False).to(args.device), reduction='none')
         t = min(i, args.max_prev_node)
-        tmp_2 = torch.log(output_edges[ind, k:k+t, 0]) * input_edges[ind, k:k+t, 0] + \
+        tmp_2 = -torch.log(output_edges[ind, k:k+t, 0]) * input_edges[ind, k:k+t, 0] - \
             torch.log(1 - output_edges[ind, k:k+t, 0]) * (1 - input_edges[ind, k:k+t, 0])
+        # tmp_2 = F.binary_cross_entropy(output_edges[ind, k:k+t, 0], input_edges[ind, k:k+t, 0], reduction='none')
         # if i == 1 and batch_num == 31 and ind.sum().item() > 0:
         #     print('\n', i,
-        #     list(zip(list(input_edges[ind, k:k+t, 0][0].detach().cpu().numpy()), list(output_edges[ind, k:k+t, 0][0].detach().cpu().numpy()), tmp_2[0].detach().cpu().numpy())),
+            # list(zip(list(input_edges[ind, k:k+t, 0][0].detach().cpu().numpy()), list(output_edges[ind, k:k+t, 0][0].detach().cpu().numpy()), tmp_2[0].detach().cpu().numpy())),
                   # tmp_2[0].mean().item(),
                   # input_edges[ind, k:k+t, 0][0].mean().item(),
                   # output_edges[ind, k:k + t, 0][0].mean().item())
-        # print('\n', i, input_edges[ind, k:k+t, 0][0].size(), output_edges[ind, k:k+t,0][0].detach().cpu().numpy().shape)
-        # print('\n', i, ind.size(), input_edges.size(), input_edges[ind].size())
         # print(i, ind.sum().item(), input_edges[ind, k:k + t, 0].sum(dim=1).mean().item(),
         #                         output_edges[ind, k:k + t].sum(dim=1).mean().item())
         # print(i, ind.sum().item(), tmp_1.mean().item(), output_nodes[ind, i].mean().item())  # tmp_2.mean().item())
         p_ = 0
         res[ind] += (1 / (i+1)) ** p_ * (tmp_2.sum(dim=1) + tmp_1)
         k += t
+        print('k=', k)
 
+        tmp = None
         if i < max_n - 1:
             ind = torch.eq(len_, i+1)
-            tmp = torch.log(1 - output_nodes[ind, i+1,0])
-            res[ind] += (1 / (i+1)) ** p_ * tmp
+            if ind.sum() > 0:
+                #print(input_nodes[ind, i-1, 0].mean().item(), input_nodes[ind, i, 0].mean().item(), input_edges[ind, 0, 0].mean().item(), output_nodes[ind, i+1,0].mean().item(), input_nodes[ind, i+1, 0].mean().item())
+                tmp = -torch.log(1 - output_nodes[ind, i+1,0])
+                # tmp = F.binary_cross_entropy(output_nodes[ind, i+1, 0], torch.zeros(ind.sum(), requires_grad=False).to(args.device), reduction='none')
+                res[ind] += (1 / (i+1)) ** p_ * tmp
+
+        if tmp is None:
+            print(batch_num, '---- ', i, tmp_1.mean().item(), tmp_2.mean().item(), None)
+        else:
+            print(batch_num, '---- ', i, tmp_1.mean().item(), tmp_2.mean().item(), tmp.mean().item(), output_nodes[ind, i+1, 0].mean().item(), pre_output_nodes[ind, i+1, 0].mean().item())
     # if batch_num == 31:
         # print('\n')
         # input()
-    return -res.sum()
+    input()
+    return res.sum()
 
 
 def get_lr(optimizer):
@@ -174,8 +197,8 @@ def train(gcade_model, dataset_train, args):
             len_ = data['len'].float().to(args.device)
 
             optimizer.zero_grad()
-            pred_nodes, pred_edges = gcade_model(input_nodes, input_edges)
-            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_, args, i)
+            pred_nodes, pred_edges, pre_pred_nodes, pre_pred_edges = gcade_model(input_nodes, input_edges)
+            loss = nll(pred_nodes, pred_edges, input_nodes, input_edges, len_, args, i, pre_pred_nodes, pre_pred_edges)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
             optimizer.step()

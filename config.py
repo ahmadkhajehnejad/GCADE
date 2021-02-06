@@ -89,7 +89,7 @@ class Args():
             input_feature_edges = 2 * self.max_num_node + 1
         else:
             input_feature_edges = 1
-        num_l = 2
+        num_l = 3
         return [
             {
                 'input_features_nodes': input_feature_nodes, 'agg_features_nodes': 100, 'output_features_nodes': 100,
