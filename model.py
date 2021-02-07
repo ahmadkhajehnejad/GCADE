@@ -100,7 +100,7 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args, batch_
     # if batch_num == 31:
         # print('\n')
         # input()
-    return -res.sum()
+    return res.sum()
 
 
 def get_lr(optimizer):
