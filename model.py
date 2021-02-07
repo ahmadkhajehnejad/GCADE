@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.optim.lr_scheduler import MultiStepLR
 from layers import AutoRegressiveGraphConvLayer
 import numpy as np
@@ -68,10 +69,12 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args, batch_
         # if i < 5:
         #     print(i, ind.sum().item(), output_nodes[ind, i, 0].mean().item())
 
-        tmp_1 = torch.log(output_nodes[ind, i, 0])
+        # tmp_1 = -torch.log(output_nodes[ind, i, 0])
+        tmp_1 = F.binary_cross_entropy(output_nodes[ind, i, 0], torch.ones(ind.sum(), requires_grad=False).to(args.device), reduction='none')
         t = min(i, args.max_prev_node)
-        tmp_2 = torch.log(output_edges[ind, k:k+t, 0]) * input_edges[ind, k:k+t, 0] + \
-            torch.log(1 - output_edges[ind, k:k+t, 0]) * (1 - input_edges[ind, k:k+t, 0])
+        # tmp_2 = -torch.log(output_edges[ind, k:k+t, 0]) * input_edges[ind, k:k+t, 0] - \
+        #     torch.log(1 - output_edges[ind, k:k+t, 0]) * (1 - input_edges[ind, k:k+t, 0])
+        tmp_2 = F.binary_cross_entropy(output_edges[ind, k:k+t, 0], input_edges[ind, k:k+t, 0], reduction='none')
         # if i == 1 and batch_num == 31 and ind.sum().item() > 0:
         #     print('\n', i,
         #     list(zip(list(input_edges[ind, k:k+t, 0][0].detach().cpu().numpy()), list(output_edges[ind, k:k+t, 0][0].detach().cpu().numpy()), tmp_2[0].detach().cpu().numpy())),
@@ -89,8 +92,11 @@ def nll(output_nodes, output_edges, input_nodes, input_edges, len_, args, batch_
 
         if i < max_n - 1:
             ind = torch.eq(len_, i+1)
-            tmp = torch.log(1 - output_nodes[ind, i+1,0])
-            res[ind] += (1 / (i+1)) ** p_ * tmp
+            if ind.sum() > 0:
+                # tmp = -torch.log(1 - output_nodes[ind, i+1,0])
+                tmp = F.binary_cross_entropy(output_nodes[ind, i+1, 0], torch.zeros(ind.sum(), requires_grad=False).to(args.device), reduction='none')
+                res[ind] += (1 / (i+1)) ** p_ * tmp
+
     # if batch_num == 31:
         # print('\n')
         # input()
