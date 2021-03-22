@@ -31,6 +31,7 @@ class Args():
         # if none, then auto calculate
         self.max_num_node = None  # max number of nodes in a graph
         self.max_prev_node = None  # max previous node that looks back
+        self.max_seq_len = None
 
         ### output config
         # self.dir_input = "/dfs/scratch0/jiaxuany0/"
@@ -57,8 +58,8 @@ class Args():
         self.epochs_save = 100
 
         self.lr = 0.003 #0.003
-        self.milestones = [4000, 10000]
-        self.lr_rate = 0.3
+        # self.milestones = [4000, 10000]
+        # self.lr_rate = 0.3
 
         self.sample_time = 2  # sample time in each time step, when validating
 
@@ -77,42 +78,30 @@ class Args():
         #     self.hidden_size_rnn) + '_test_'
         # self.fname_baseline = self.graph_save_path + self.graph_type + self.generator_baseline + '_' + self.metric_baseline
 
-        self.feed_node_id = True
-        self.feed_edge_id = True
+        self.input_type = 'node_based'
 
-    def list_layer_sizes(self):
-        if self.feed_node_id:
-            input_feature_nodes = self.max_num_node + 1
-        else:
-            input_feature_nodes = 1
-        if self.feed_edge_id:
-            input_feature_edges = 2 * self.max_num_node + 1
-        else:
-            input_feature_edges = 1
-        num_l = 2
-        return [
-            {
-                'input_features_nodes': input_feature_nodes, 'agg_features_nodes': 100, 'output_features_nodes': 100,
-                'num_aggregation_layers_nodes': num_l, 'num_last_linear_layers_nodes': num_l,
-                'input_features_edges': input_feature_edges, 'agg_features_edges': 100, 'output_features_edges': 100,
-                'num_aggregation_layers_edges': num_l, 'num_last_linear_layers_edges': num_l,
-                'activation_nodes': nn.ReLU(), 'activation_edges': nn.ReLU()
-            },
-            {
-                'input_features_nodes': 100, 'agg_features_nodes': 100, 'output_features_nodes': 50,
-                'num_aggregation_layers_nodes': num_l, 'num_last_linear_layers_nodes': num_l,
-                'input_features_edges': 100, 'agg_features_edges': 100, 'output_features_edges': 50,
-                'num_aggregation_layers_edges': num_l, 'num_last_linear_layers_edges': num_l,
-                'activation_nodes': nn.ReLU(), 'activation_edges': nn.ReLU()
-            },
-            {
-                'input_features_nodes': 50, 'agg_features_nodes': 50, 'output_features_nodes': 1,
-                'num_aggregation_layers_nodes': num_l, 'num_last_linear_layers_nodes': num_l,
-                'input_features_edges': 50, 'agg_features_edges': 50, 'output_features_edges': 1,
-                'num_aggregation_layers_edges': num_l, 'num_last_linear_layers_edges': num_l,
-                'activation_nodes': nn.Sigmoid(), 'activation_edges': nn.Sigmoid()
-            },
-        ]
+        ### Transformer settings
+
+        self.d_model = 100 # 512
+        self.d_word_vec = 100 # 512   ## should be equal to self.d_model
+        self.d_inner_hid = 400 # 2048
+        self.d_k = 20 # 64
+        self.d_v = 20 # 64
+        self.n_layers = 3 # 6
+        self.n_head = 8
+        self.dropout = 0.1
+        self.proj_share_weight = True
+        self.embs_share_weight = True
+        self.scale_emb_or_prj = 'prj'
+
+        ## optimizer:
+        # self.epochs = 200
+        self.lr_mul = 2.0
+        self.n_warmup_steps = 4000
+
+        ### output
+        self.use_tb = False  # use tensorboard
+        self.output_dir = './output'
 
 
 

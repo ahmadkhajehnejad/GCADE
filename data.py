@@ -14,7 +14,7 @@ import random
 import shutil
 import os
 import time
-from model import *
+# from model import *
 from utils import *
 
 
@@ -231,23 +231,31 @@ def decode_adj(adj_output):
     return adj_full
 
 
-def my_decode_adj(nodes, edges, m):
+def my_decode_adj(generated_seq, args):
     '''
         recover to adj from nodes and edges
     '''
 
-    n = np.argmin(np.concatenate([nodes, [0]]))
-    # n = nodes.size
+    if args.input_type == 'node_based':
+        adj = np.zeros(args.max_num_node, args.max_num_node)
+        n = 0
+        assert generated_seq[0] == args.max_num_node + 1 ## add_node
+        for i in range(generated_seq.size):
+            if generated_seq[i] == args.max_num_node + 2: ## terminate
+                break
+            if generated_seq[i] ==  args.max_num_node + 1: ## add_node
+                n += 1
+                continue
+            assert generated_seq[i] > 0
+            j = generated_seq[i] - 1
+            assert j < n-1
+            assert adj[n-1,j] == 0
+            adj[n-1,j] = adj[j,n-1] = 1
+        adj = adj[:n, :n]
+    else:
+        raise NotImplementedError
 
-    adj_full = np.zeros([n,n])
-    e = 0
-    for i in range(n):
-        j0 = max(0, i-m)
-        adj_full[i, j0:i] = edges[e:e+i-j0]
-        adj_full[j0:i, i] = edges[e:e+i-j0]
-        e += i-j0
-
-    return adj_full
+    return adj
 
 
 def encode_adj_flexible(adj):
@@ -476,8 +484,7 @@ def test_encode_decode_adj_full():
 
 class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
     def __init__(self, G_list, args, max_num_node=None, max_prev_node=None, iteration=20000):
-        self.feed_node_id = args.feed_node_id
-        self.feed_edge_id = args.feed_edge_id
+        self.input_type = args.input_type
         self.adj_all = []
         self.len_all = []
         for G in G_list:
@@ -499,6 +506,12 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
             num_e += min(self.max_prev_node, i)
         self.e = num_e
 
+        if self.input_type == 'node_based':
+            self.max_seq_len = self.n + self.e + 2 # self.n add_node charachters, self.e node_idx charachters,
+                                                   # 1 termination charachter and 1 for positional shift of the source sequence
+        else:
+            raise NotImplementedError
+
         # self.max_prev_node = max_prev_node
 
         # # sort Graph in descending order
@@ -509,9 +522,6 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         return len(self.adj_all)
     def __getitem__(self, idx):
         adj_copy = self.adj_all[idx].copy()
-        x_batch = np.zeros((self.n, self.max_prev_node))  # here zeros are padded for small graph
-        x_batch[0,:] = 1 # the first input token is all ones
-        y_batch = np.zeros((self.n, self.max_prev_node))  # here zeros are padded for small graph
         # generate input x, y pairs
         len_batch = adj_copy.shape[0]
         x_idx = np.random.permutation(adj_copy.shape[0])
@@ -523,31 +533,41 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         x_idx = np.array(bfs_seq(G, start_idx))
         adj_copy = adj_copy[np.ix_(x_idx, x_idx)]
 
-        if self.feed_node_id:
-            nodes_features = np.zeros([self.n, self.n + 1])
-            nodes_features[:len_batch, 0] = 1
-            nodes_features[:, 1:] = np.eye(self.n)
-        else:
-            nodes_features = np.zeros([self.n, 1])
-            nodes_features[:len_batch, 0] = 1
+        if self.input_type == 'node_based':
+            trg_seq = np.zeros(self.max_seq_len, dtype=np.long)
+            src_seq = np.zeros(self.max_seq_len, dtype=np.long)
 
-        if self.feed_edge_id:
-            edges_features = np.zeros([self.e, 1 + 2*self.n])
-        else:
-            edges_features = np.zeros([self.e, 1])
-        k = 0
-        for i in range(len_batch):
-            for j in range(max(0, i-self.max_prev_node), i):
-                if adj_copy[j,i] == 1:
-                    edges_features[k,0] = 1
-                if self.feed_edge_id:
-                    edges_features[k, 1 + j] = 1
-                    edges_features[k, 1 + self.n + i] = 1
-                k += 1
+            head = 0
+            for i in range(len_batch):
+                trg_seq[head] = self.n + 1  # add node
+                head += 1
+                nd_idx = np.where(adj_copy[:i,i])[0] + 1
+                sz = nd_idx.size
+                if sz > 0:
+                    trg_seq[head:head+sz] = nd_idx
+                    head += sz
+                # for j in range(i):
+                #     if adj_copy[j, i] == 1:
+                #         src_seq[head] = j + 1
+                #         head += 1
+            trg_seq[head] = self.n + 2  # terminate
+            head += 1
 
-        return {'input_nodes_features': nodes_features, 'input_edges_features': edges_features,
-                'output_nodes_features': nodes_features[:,0:1].copy(), 'output_edges_features': edges_features.copy(),
-                'len': len_batch}
+            src_seq[1:] = trg_seq[:-1].copy()
+
+        else:
+            raise NotImplementedError
+
+        # print('\n', '####################### adj ######################')
+        # print(adj_copy)
+        # print('####################### trg ######################')
+        # print(trg_seq)
+        # print('####################### src ######################')
+        # print(src_seq)
+        # print('##################################################', '\n')
+        # input()
+
+        return {'src_seq': src_seq, 'trg_seq': trg_seq}
 
     def calc_max_prev_node(self, iter=20000,topk=10):
         max_prev_node = []

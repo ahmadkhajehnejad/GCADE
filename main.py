@@ -1,13 +1,19 @@
 import create_graphs
-import torch
 import os
 import random
-from data import MyGraph_sequence_sampler_pytorch
+from data import MyGraph_sequence_sampler_pytorch, my_decode_adj
 from config import Args
-import numpy as np
-from model import GCADEModel, train
+# from model import GCADEModel, train
 import numpy as np
 import torch
+from transformer.Models import Transformer
+import torch.optim as optim
+from transformer.Optim import ScheduledOptim
+import time
+import sys
+import utils
+import torch.nn.functional as F
+
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -95,11 +101,165 @@ sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(data
 dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers,
                                              sampler=sample_strategy)
 
+if args.input_type == 'node_based':
+    args.max_prev_node = dataset.max_prev_node
+    args.max_seq_len = dataset.max_seq_len
+    args.vocab_size = args.max_num_node + 3  # 0 for padding, self.n+1 for add_node, self.n+2 for termination
+else:
+    raise NotImplementedError
 
 print('Preparing dataset finished.')
 
-gcade_model = GCADEModel(args)
+# gcade_model = GCADEModel(args)
 
-print('Model initiated.')
+# print('Model initiated.')
 
-train(gcade_model, dataset_loader, args)
+# train(gcade_model, dataset_loader, args)
+
+model = Transformer(
+    args.vocab_size,
+    args.vocab_size,
+    src_pad_idx=0,
+    trg_pad_idx=0,
+    trg_emb_prj_weight_sharing=args.proj_share_weight,
+    emb_src_trg_weight_sharing=args.embs_share_weight,
+    d_k=args.d_k,
+    d_v=args.d_v,
+    d_model=args.d_model,
+    d_word_vec=args.d_word_vec,
+    d_inner=args.d_inner_hid,
+    n_layers=args.n_layers,
+    n_head=args.n_head,
+    dropout=args.dropout,
+    scale_emb_or_prj=args.scale_emb_or_prj).to(args.device)
+
+print('model initiated.')
+
+optimizer = ScheduledOptim(
+    optim.Adam(model.parameters(), betas=(0.9, 0.98), eps=1e-09),
+    args.lr_mul, args.d_model, args.n_warmup_steps)
+
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+
+
+def cal_performance(pred, gold, trg_pad_idx, smoothing=False):
+    ''' Apply label smoothing if needed '''
+
+    loss = cal_loss(pred, gold, trg_pad_idx, smoothing=smoothing)
+
+    pred = pred.max(1)[1]
+    gold = gold.contiguous().view(-1)
+    non_pad_mask = gold.ne(trg_pad_idx)
+    n_correct = pred.eq(gold).masked_select(non_pad_mask).sum().item()
+    n_word = non_pad_mask.sum().item()
+
+    return loss, n_correct, n_word
+
+
+def cal_loss(pred, gold, trg_pad_idx, smoothing=False):
+    ''' Calculate cross entropy loss, apply label smoothing if needed. '''
+
+    gold = gold.contiguous().view(-1)
+
+    if smoothing:
+        eps = 0.1
+        n_class = pred.size(1)
+
+        one_hot = torch.zeros_like(pred).scatter(1, gold.view(-1, 1), 1)
+        one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (n_class - 1)
+        log_prb = F.log_softmax(pred, dim=1)
+
+        non_pad_mask = gold.ne(trg_pad_idx)
+        loss = -(one_hot * log_prb).sum(dim=1)
+        loss = loss.masked_select(non_pad_mask).sum()  # average later
+    else:
+        loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
+    return loss
+
+def generate_graph(gg_model, args):
+
+    # return None
+    gg_model.eval()
+
+    src_seq = torch.zeros((args.test_batch_size, args.max_seq_len), dtype=torch.long).to(args.device)
+    for i in range(args.max_seq_len):
+        pred = gg_model(src_seq, src_seq).max(1)[1].view([args.test_batch_size, args.max_seq_len])
+        src_seq[:, i] = pred[:, i]
+
+    # save graphs as pickle
+    G_pred_list = []
+    for i in range(args.test_batch_size):
+        adj_pred = my_decode_adj(src_seq[i,:].cpu().numpy(), args)
+        G_pred = utils.get_graph(adj_pred) # get a graph from zero-padded adj
+        G_pred_list.append(G_pred)
+
+    return G_pred_list
+
+
+def train(gg_model, dataset_train, optimizer, args):
+
+    ## initialize optimizer
+    ## optimizer = torch.optim.Adam(list(gcade_model.parameters()), lr=args.lr)
+    ## scheduler = MultiStepLR(optimizer, milestones=args.milestones, gamma=args.lr_rate)
+
+    # start main loop
+    time_all = np.zeros(args.epochs)
+    for epoch in range(args.epochs):
+        time_start = time.time()
+        running_loss = 0.0
+        trsz = 0
+        gg_model.train()
+        for i, data in enumerate(dataset_train, 0):
+            # print(' #', i)
+            print('.', end='')
+            sys.stdout.flush()
+            src_seq = data['src_seq'].to(args.device)
+            trg_seq = data['src_seq'].to(args.device)
+            gold = data['trg_seq'].contiguous().to(args.device)
+
+            optimizer.zero_grad()
+            pred = gg_model(src_seq, trg_seq)
+            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, smoothing=False)
+            # print('  ', loss.item() / input_nodes.size(0))
+            loss.backward()
+            optimizer.step_and_update_lr()
+
+            running_loss += loss.item()
+            trsz += src_seq.size(0)
+
+        print('[epoch %d]     loss: %.3f                lr: %f' %
+              (epoch + 1, running_loss / trsz, optimizer._optimizer.param_groups[0]['lr'])) #get_lr(optimizer)))
+        time_end = time.time()
+        time_all[epoch - 1] = time_end - time_start
+        # test
+        if epoch % args.epochs_test == 0 and epoch >= args.epochs_test_start:
+            for sample_time in range(1,2): #4):
+                print('     sample_time:', sample_time)
+                G_pred = []
+                while len(G_pred)<args.test_total_size:
+                    print('        len(G_pred):', len(G_pred))
+                    G_pred_step = generate_graph(gg_model, args)
+                    G_pred.extend(G_pred_step)
+                # save graphs
+                fname = args.graph_save_path + args.fname_pred + str(epoch) + '_' + str(sample_time) + '.dat'
+                utils.save_graph_list(G_pred, fname)
+            print('test done, graphs saved')
+
+    #
+    #     # save model checkpoint
+    #     if args.save:
+    #         if epoch % args.epochs_save == 0:
+    #             fname = args.model_save_path + args.fname + 'lstm_' + str(epoch) + '.dat'
+    #             torch.save(rnn.state_dict(), fname)
+    #             fname = args.model_save_path + args.fname + 'output_' + str(epoch) + '.dat'
+    #             torch.save(output.state_dict(), fname)
+    #     epoch += 1
+    # np.save(args.timing_save_path+args.fname,time_all)
+
+
+print('############# vocab_size: ', args.vocab_size)
+print('############# max_seq_len: ', args.max_seq_len)
+
+train(model, dataset_loader, optimizer, args)
