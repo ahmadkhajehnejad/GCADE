@@ -262,7 +262,5 @@ def train(gg_model, dataset_train, optimizer, args):
 print('############# vocab_size: ', args.vocab_size)
 print('############# max_seq_len: ', args.max_seq_len)
 
-print(optimizer._optimizer.param_groups[0]['lr'])
-input()
 
 train(model, dataset_loader, optimizer, args)
