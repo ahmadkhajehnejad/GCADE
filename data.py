@@ -237,7 +237,7 @@ def my_decode_adj(generated_seq, args):
     '''
 
     if args.input_type == 'node_based':
-        adj = np.zeros(args.max_num_node, args.max_num_node)
+        adj = np.zeros([args.max_num_node, args.max_num_node])
         n = 0
         assert generated_seq[0] == args.max_num_node + 1 ## add_node
         for i in range(generated_seq.size):
