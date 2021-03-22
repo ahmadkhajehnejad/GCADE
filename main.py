@@ -184,9 +184,9 @@ def generate_graph(gg_model, args):
     gg_model.eval()
 
     src_seq = torch.zeros((args.test_batch_size, args.max_seq_len), dtype=torch.long).to(args.device)
-    for i in range(args.max_seq_len):
+    for i in range(args.max_seq_len - 1):
         pred = gg_model(src_seq, src_seq).max(1)[1].view([args.test_batch_size, args.max_seq_len])
-        src_seq[:, i] = pred[:, i]
+        src_seq[:, i + 1] = pred[:, i]
 
     # save graphs as pickle
     G_pred_list = []
@@ -261,5 +261,8 @@ def train(gg_model, dataset_train, optimizer, args):
 
 print('############# vocab_size: ', args.vocab_size)
 print('############# max_seq_len: ', args.max_seq_len)
+
+print(optimizer._optimizer.param_groups[0]['lr'])
+input()
 
 train(model, dataset_loader, optimizer, args)
