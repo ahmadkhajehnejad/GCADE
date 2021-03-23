@@ -92,14 +92,20 @@ print('max previous node: {}'.format(args.max_prev_node))
 ### dataset initialization
 dataset = MyGraph_sequence_sampler_pytorch(graphs_train, args, max_prev_node=args.max_prev_node,
                                              max_num_node=args.max_num_node)
-
-
-
 sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(dataset) for i in range(len(dataset))],
                                                                  num_samples=args.batch_size * args.batch_ratio,
                                                                  replacement=True)
 dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers,
                                              sampler=sample_strategy)
+
+val_dataset = MyGraph_sequence_sampler_pytorch(graphs_validate, args, max_prev_node=args.max_prev_node,
+                                             max_num_node=args.max_num_node)
+val_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(val_dataset) for i in range(len(val_dataset))],
+                                                                 num_samples=args.batch_size * args.batch_ratio,
+                                                                 replacement=True)
+val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
+                                             sampler=val_sample_strategy)
+
 
 if args.input_type == 'node_based':
     args.max_prev_node = dataset.max_prev_node
@@ -198,7 +204,7 @@ def generate_graph(gg_model, args):
     return G_pred_list
 
 
-def train(gg_model, dataset_train, optimizer, args):
+def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
     ## initialize optimizer
     ## optimizer = torch.optim.Adam(list(gcade_model.parameters()), lr=args.lr)
@@ -229,8 +235,23 @@ def train(gg_model, dataset_train, optimizer, args):
             running_loss += loss.item()
             trsz += src_seq.size(0)
 
-        print('[epoch %d]     loss: %.3f                lr: %f' %
-              (epoch + 1, running_loss / trsz, optimizer._optimizer.param_groups[0]['lr'])) #get_lr(optimizer)))
+        val_running_loss = 0.0
+        vlsz = 0
+        gg_model.eval()
+        for i, data in enumerate(dataset_validation, 0):
+            src_seq = data['src_seq'].to(args.device)
+            trg_seq = data['src_seq'].to(args.device)
+            gold = data['trg_seq'].contiguous().to(args.device)
+
+            pred = gg_model(src_seq, trg_seq)
+            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, smoothing=False)
+
+            val_running_loss += loss.item()
+            vlsz += src_seq.size(0)
+
+
+        print('[epoch %d]     loss: %.3f     val: %.3f              lr: %f' %
+              (epoch + 1, running_loss / trsz, val_running_loss / vlsz, optimizer._optimizer.param_groups[0]['lr'])) #get_lr(optimizer)))
         time_end = time.time()
         time_all[epoch - 1] = time_end - time_start
         # test
@@ -263,4 +284,4 @@ print('############# vocab_size: ', args.vocab_size)
 print('############# max_seq_len: ', args.max_seq_len)
 
 
-train(model, dataset_loader, optimizer, args)
+train(model, dataset_loader, val_dataset_loader, optimizer, args)
