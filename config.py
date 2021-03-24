@@ -66,17 +66,7 @@ class Args():
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print('self.device:', self.device)
 
-        ### filenames to save intemediate and final outputs
-        # self.fname = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
-        #     self.hidden_size_rnn) + '_'
-        # self.fname_pred = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
-        #     self.hidden_size_rnn) + '_pred_'
-        self.fname_pred = self.graph_type + '_pred_'
-        # self.fname_train = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
-        #     self.hidden_size_rnn) + '_train_'
-        # self.fname_test = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
-        #     self.hidden_size_rnn) + '_test_'
-        # self.fname_baseline = self.graph_save_path + self.graph_type + self.generator_baseline + '_' + self.metric_baseline
+        self.note = 'Gransformer'
 
         self.input_type = 'node_based'
 
@@ -105,3 +95,16 @@ class Args():
 
 
 
+        ### filenames to save intemediate and final outputs
+        # self.fname = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
+        #     self.hidden_size_rnn) + '_'
+        # self.fname_pred = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
+        #     self.hidden_size_rnn) + '_pred_'
+        self.fname_pred = self.note + '_' + self.graph_type + '_' + self.input_type + '_' +  '_pred_'
+        # self.fname_train = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
+        #     self.hidden_size_rnn) + '_train_'
+        self.fname_train = self.note + '_' + self.graph_type + '_' + self.input_type + '_train_'
+        # self.fname_test = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
+        #     self.hidden_size_rnn) + '_test_'
+        self.fname_test = self.note + '_' + self.graph_type + '_' + self.input_type + '_test_'
+        # self.fname_baseline = self.graph_save_path + self.graph_type + self.generator_baseline + '_' + self.metric_baseline

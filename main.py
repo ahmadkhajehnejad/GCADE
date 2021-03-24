@@ -13,6 +13,7 @@ import time
 import sys
 import utils
 import torch.nn.functional as F
+from utils import save_graph_list
 
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
@@ -28,6 +29,12 @@ torch.manual_seed(123)
 
 args = Args()
 graphs = create_graphs.create(args)
+
+# frq = np.zeros((21,))
+# for g in graphs:
+#     frq[len(g.nodes)] += 1
+# print('\n'.join([str(k) + ' : ' + str(v) for k,v in {i:frq[i] for i in range(21) if frq[i] > 0}.items()]))
+# input()
 
 # split datasets
 random.shuffle(graphs)
@@ -71,11 +78,11 @@ print('max number node: {}'.format(args.max_num_node))
 print('max/min number edge: {}; {}'.format(max_num_edge, min_num_edge))
 print('max previous node: {}'.format(args.max_prev_node))
 
-# # save ground truth graphs
-# ## To get train and test set, after loading you need to manually slice
-# save_graph_list(graphs, args.graph_save_path + args.fname_train + '0.dat')
-# save_graph_list(graphs, args.graph_save_path + args.fname_test + '0.dat')
-# print('train and test graphs saved at: ', args.graph_save_path + args.fname_test + '0.dat')
+# save ground truth graphs
+## To get train and test set, after loading you need to manually slice
+save_graph_list(graphs, args.graph_save_path + args.fname_train + '0.dat')
+save_graph_list(graphs, args.graph_save_path + args.fname_test + '0.dat')
+print('train and test graphs saved at: ', args.graph_save_path + args.fname_test + '0.dat')
 
 ### comment when normal training, for graph completion only
 # p = 0.5
@@ -105,6 +112,7 @@ val_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(
                                                                  replacement=True)
 val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
                                              sampler=val_sample_strategy)
+
 
 
 if args.input_type == 'node_based':
