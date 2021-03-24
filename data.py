@@ -260,9 +260,9 @@ def my_decode_adj(generated_seq, args):
             j = generated_seq[i] - 1
             ## assert j < n-1
             ## assert adj[n-1,j] == 0
-            if j < n-1:
+            if j >= n-1:
                 print('      __ERR: edge to a prospective node changed to edge to a preceding node.')
-                j = np.random.randint(0, i)
+                j = np.random.randint(0, n-1)
             elif adj[n-1,j] != 0:
                 print('      __ERR: ignoring duplicate edge')
             adj[n-1,j] = adj[j,n-1] = 1
