@@ -251,6 +251,10 @@ def my_decode_adj(generated_seq, args):
         for i in range(generated_seq.size):
             if generated_seq[i] == args.max_num_node + 2: ## terminate
                 break
+            # assert not (i > 1 and generated_seq[i] == generated_seq[i-1] == args.max_num_node + 1)
+            if (i > 1 and generated_seq[i] == generated_seq[i-1] == args.max_num_node + 1):
+                print('      __ERR: ignoring an orphan node at position', i)
+                continue
             if generated_seq[i] ==  args.max_num_node + 1: ## add_node
                 n += 1
                 if n == args.max_num_node:
@@ -259,6 +263,7 @@ def my_decode_adj(generated_seq, args):
             ## assert generated_seq[i] > 0
             if generated_seq[i] == 0:
                 print('      __ERR: ignoring word 0 at position', i)
+                continue
 
             j = generated_seq[i] - 1
             ## assert j < n-1
