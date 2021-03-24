@@ -191,7 +191,10 @@ def generate_graph(gg_model, args):
 
     src_seq = torch.zeros((args.test_batch_size, args.max_seq_len), dtype=torch.long).to(args.device)
     for i in range(args.max_seq_len - 1):
-        pred = gg_model(src_seq, src_seq).max(1)[1].view([args.test_batch_size, args.max_seq_len])
+        #pred = gg_model(src_seq, src_seq).max(1)[1].view([args.test_batch_size, args.max_seq_len])
+        pred_logprobs = gg_model(src_seq, src_seq) #.max(1)[1].view([args.test_batch_size, args.max_seq_len])
+        pred_probs = pred_logprobs.exp() / pred_logprobs.exp().sum(axis=-1, keepdim=True).repeat(1,pred_logprobs.size(-1))
+        pred = torch.tensor([np.random.choice(np.arange(probs.size(0)),1,probs.cpu().numpy()) for probs in pred_probs]).to(args.device)
         src_seq[:, i + 1] = pred[:, i]
 
     # save graphs as pickle
