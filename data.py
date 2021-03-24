@@ -239,17 +239,32 @@ def my_decode_adj(generated_seq, args):
     if args.input_type == 'node_based':
         adj = np.zeros([args.max_num_node, args.max_num_node])
         n = 0
-        assert generated_seq[0] == args.max_num_node + 1 ## add_node
+        #assert generated_seq[0] == args.max_num_node + 1 ## add_node
+        if generated_seq[0] != args.max_num_node + 1:
+            print('      __ERR: first word is ', generated_seq[0])
+            generated_seq[0] = args.max_num_node + 1
+        if generated_seq[1] != args.max_num_node + 1:
+            print('      __ERR: second word is ', generated_seq[1])
+            generated_seq[1] = args.max_num_node + 1
+
         for i in range(generated_seq.size):
             if generated_seq[i] == args.max_num_node + 2: ## terminate
                 break
             if generated_seq[i] ==  args.max_num_node + 1: ## add_node
                 n += 1
                 continue
-            assert generated_seq[i] > 0
+            ## assert generated_seq[i] > 0
+            if generated_seq[i] == 0:
+                print('      __ERR: ignoring word 0 at position', i)
+
             j = generated_seq[i] - 1
-            assert j < n-1
-            assert adj[n-1,j] == 0
+            ## assert j < n-1
+            ## assert adj[n-1,j] == 0
+            if j < n-1:
+                print('      __ERR: edge to a prospective node changed to edge to a preceding node.')
+                j = np.random.randint(0, i)
+            elif adj[n-1,j] != 0:
+                print('      __ERR: ignoring duplicate edge')
             adj[n-1,j] = adj[j,n-1] = 1
         adj = adj[:n, :n]
     else:
