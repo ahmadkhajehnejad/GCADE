@@ -52,8 +52,8 @@ class Args():
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32  # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epochs = 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 100 # 10
-        self.epochs_test = 5 # 100
+        self.epochs_test_start = 30 # 10
+        self.epochs_test = 10 # 100
         self.epochs_log = 100
         self.epochs_save = 100
 
@@ -78,7 +78,7 @@ class Args():
         self.d_k = 20 # 64
         self.d_v = 20 # 64
         self.n_layers = 3 # 6
-        self.n_head = 8
+        self.n_head = 8 # 1
         self.dropout = 0.1
         self.proj_share_weight = True
         self.embs_share_weight = True
@@ -87,7 +87,7 @@ class Args():
         ## optimizer:
         # self.epochs = 200
         self.lr_mul = 2.0
-        self.n_warmup_steps = 4000
+        self.n_warmup_steps = 500 # 4000
 
         ### output
         self.use_tb = False  # use tensorboard
