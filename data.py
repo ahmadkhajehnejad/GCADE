@@ -275,6 +275,14 @@ def my_decode_adj(generated_seq, args):
                 print('      __ERR: ignoring duplicate edge')
             adj[n-1,j] = adj[j,n-1] = 1
         adj = adj[:n, :n]
+    elif args.input_type == 'preceding_neighbors_vector':
+        adj = np.zeros([args.max_num_node, args.max_num_node])
+        for i in range(generated_seq.shape[0]):
+            if (i > 0) and (not np.any(generated_seq[i,:i])):
+                adj = adj[:i, :i]
+                break
+            adj[i,:i] = generated_seq[i,:i]
+            adj[:i,i] = generated_seq[i,:i]
     else:
         raise NotImplementedError
 
@@ -532,6 +540,8 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         if self.input_type == 'node_based':
             self.max_seq_len = self.n + self.e + 2 # self.n add_node charachters, self.e node_idx charachters,
                                                    # 1 termination charachter and 1 for positional shift of the source sequence
+        elif self.input_type == 'preceding_neighbors_vector':
+            self.max_seq_len = self.n + 1 # 1 for positional shift of the source sequence
         else:
             raise NotImplementedError
 
@@ -577,6 +587,14 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
             head += 1
 
             src_seq[1:] = trg_seq[:-1].copy()
+        elif self.input_type == 'preceding_neighbors_vector':
+            trg_seq = -1 * np.ones([self.max_seq_len, self.n], dtype=np.float32)
+            src_seq = -1 * np.ones([self.max_seq_len, self.n], dtype=np.float32)
+            for i in range(len_batch):
+                trg_seq[i,:adj_copy.shape[1]] = adj_copy[i,:].copy()
+                trg_seq[i,i:] = 0
+            trg_seq[len_batch,:] = 0
+            src_seq[1:,:] = trg_seq[:-1,:].copy()
 
         else:
             raise NotImplementedError

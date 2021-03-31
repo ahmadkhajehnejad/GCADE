@@ -68,7 +68,16 @@ class Args():
 
         self.note = 'Gransformer'
 
-        self.input_type = 'node_based'
+        self.input_type = 'preceding_neighbors_vector' # 'node_based'
+        if self.input_type == 'node_based':
+            self.trg_pad_idx = 0
+            self.src_pad_idx = 0
+        elif self.input_type == 'preceding_neighbors_vector':
+            self.trg_pad_idx = -1
+            self.src_pad_idx = -1
+        else:
+            raise NotImplementedError
+
 
         ### Transformer settings
 
@@ -80,7 +89,7 @@ class Args():
         self.n_layers = 3 # 6
         self.n_head = 8 # 1
         self.dropout = 0.1
-        self.proj_share_weight = True
+        self.proj_share_weight = False # True
         self.embs_share_weight = True
         self.scale_emb_or_prj = 'prj'
 
@@ -100,7 +109,7 @@ class Args():
         #     self.hidden_size_rnn) + '_'
         # self.fname_pred = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
         #     self.hidden_size_rnn) + '_pred_'
-        self.fname_pred = self.note + '_' + self.graph_type + '_' + self.input_type + '_' +  '_pred_'
+        self.fname_pred = self.note + '_' + self.graph_type + '_' + self.input_type +  '_pred_'
         # self.fname_train = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
         #     self.hidden_size_rnn) + '_train_'
         self.fname_train = self.note + '_' + self.graph_type + '_' + self.input_type + '_train_'

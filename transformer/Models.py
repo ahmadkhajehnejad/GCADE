@@ -8,13 +8,18 @@ from transformer.Layers import EncoderLayer, DecoderLayer
 __author__ = "Yu-Hsiang Huang"
 
 
-def get_pad_mask(seq, pad_idx):
-    return (seq != pad_idx).unsqueeze(-2)
+def get_pad_mask(seq, pad_idx, input_type):
+    if input_type == 'node_based':
+        return (seq != pad_idx).unsqueeze(-2)
+    elif input_type == 'preceding_neighbors_vector':
+        return ((seq == pad_idx).sum(-1) == 0).unsqueeze(-2)
+    else:
+        raise NotImplementedError
 
 
 def get_subsequent_mask(seq):
     ''' For masking out the subsequent info. '''
-    sz_b, len_s = seq.size()
+    sz_b, len_s, *_ = seq.size()
     subsequent_mask = (1 - torch.triu(
         torch.ones((1, len_s, len_s), device=seq.device), diagonal=1)).bool()
     return subsequent_mask
@@ -50,11 +55,17 @@ class Encoder(nn.Module):
 
     def __init__(
             self, n_src_vocab, d_word_vec, n_layers, n_head, d_k, d_v,
-            d_model, d_inner, pad_idx, dropout=0.1, n_position=200, scale_emb=False):
+            d_model, d_inner, pad_idx, args, dropout=0.1, n_position=200, scale_emb=False):
 
         super().__init__()
 
-        self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
+        if args.input_type == 'node_based':
+            self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
+        elif args.input_type == 'preceding_neighbors_vector':
+            self.src_word_emb = nn.Linear(args.max_num_node, d_word_vec, bias=False)  #TODO: test bias=True
+        else:
+            raise NotImplementedError
+        # self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
         self.position_enc = PositionalEncoding(d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
@@ -89,11 +100,17 @@ class Decoder(nn.Module):
 
     def __init__(
             self, n_trg_vocab, d_word_vec, n_layers, n_head, d_k, d_v,
-            d_model, d_inner, pad_idx, n_position=200, dropout=0.1, scale_emb=False):
+            d_model, d_inner, pad_idx, args, n_position=200, dropout=0.1, scale_emb=False):
 
         super().__init__()
 
-        self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
+        if args.input_type == 'node_based':
+            self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
+        elif args.input_type == 'preceding_neighbors_vector':
+            self.trg_word_emb = nn.Linear(args.max_num_node, d_word_vec, bias=False)  #TODO: test bias=True
+        else:
+            raise NotImplementedError
+        # self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
         self.position_enc = PositionalEncoding(d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
@@ -129,7 +146,7 @@ class Transformer(nn.Module):
     ''' A sequence to sequence model with attention mechanism. '''
 
     def __init__(
-            self, n_src_vocab, n_trg_vocab, src_pad_idx, trg_pad_idx,
+            self, n_src_vocab, n_trg_vocab, src_pad_idx, trg_pad_idx, args,
             d_word_vec=512, d_model=512, d_inner=2048,
             n_layers=6, n_head=8, d_k=64, d_v=64, dropout=0.1, n_position=200,
             trg_emb_prj_weight_sharing=True, emb_src_trg_weight_sharing=True,
@@ -138,6 +155,7 @@ class Transformer(nn.Module):
         super().__init__()
 
         self.src_pad_idx, self.trg_pad_idx = src_pad_idx, trg_pad_idx
+        self.args = args
 
         # In section 3.4 of paper "Attention Is All You Need", there is such detail:
         # "In our model, we share the same weight matrix between the two
@@ -158,15 +176,20 @@ class Transformer(nn.Module):
             n_src_vocab=n_src_vocab, n_position=n_position,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
             n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
-            pad_idx=src_pad_idx, dropout=dropout, scale_emb=scale_emb)
+            pad_idx=src_pad_idx, args=args, dropout=dropout, scale_emb=scale_emb)
 
         self.decoder = Decoder(
             n_trg_vocab=n_trg_vocab, n_position=n_position,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
             n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
-            pad_idx=trg_pad_idx, dropout=dropout, scale_emb=scale_emb)
+            pad_idx=trg_pad_idx, args=args, dropout=dropout, scale_emb=scale_emb)
 
-        self.trg_word_prj = nn.Linear(d_model, n_trg_vocab, bias=False)
+        if args.input_type == 'node_based':
+            self.trg_word_prj = nn.Linear(d_model, n_trg_vocab, bias=False)
+        elif args.input_type == 'preceding_neighbors_vector':
+            self.trg_word_prj = nn.Linear(d_model, args.max_num_node, bias=False)  #TODO: test bias=True
+        else:
+            raise NotImplementedError
 
         for p in self.parameters():
             if p.dim() > 1:
@@ -178,7 +201,10 @@ class Transformer(nn.Module):
 
         if trg_emb_prj_weight_sharing:
             # Share the weight between target word embedding & last dense layer
-            self.trg_word_prj.weight = self.decoder.trg_word_emb.weight
+            if args.input_type == 'node_based':
+                self.trg_word_prj.weight = self.decoder.trg_word_emb.weight
+            else:
+                raise NotImplementedError  #TODO: implement it for 'preceding_neighbors_vector' input type
 
         if emb_src_trg_weight_sharing:
             self.encoder.src_word_emb.weight = self.decoder.trg_word_emb.weight
@@ -188,11 +214,13 @@ class Transformer(nn.Module):
 
         ## Modified
         #src_mask = get_pad_mask(src_seq, self.src_pad_idx)
-        src_mask = get_pad_mask(src_seq, self.src_pad_idx) & get_subsequent_mask(src_seq)
-        trg_mask = get_pad_mask(trg_seq, self.trg_pad_idx) & get_subsequent_mask(trg_seq)
+        #trg_mask = get_pad_mask(trg_seq, self.args.trg_pad_idx, self.args.input_type) & get_subsequent_mask(trg_seq)
+        src_mask = get_pad_mask(src_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(src_seq)
+        trg_mask = get_pad_mask(trg_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(trg_seq)
 
         enc_output, *_ = self.encoder(src_seq, src_mask)
         dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask)
+
         seq_logit = self.trg_word_prj(dec_output)
         if self.scale_prj:
             seq_logit *= self.d_model ** -0.5

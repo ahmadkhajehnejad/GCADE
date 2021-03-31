@@ -119,6 +119,10 @@ if args.input_type == 'node_based':
     args.max_prev_node = dataset.max_prev_node
     args.max_seq_len = dataset.max_seq_len
     args.vocab_size = args.max_num_node + 3  # 0 for padding, self.n+1 for add_node, self.n+2 for termination
+elif args.input_type == 'preceding_neighbors_vector':
+    args.max_prev_node = dataset.max_prev_node
+    args.max_seq_len = dataset.max_seq_len
+    args.vocab_size = None
 else:
     raise NotImplementedError
 
@@ -133,8 +137,9 @@ print('Preparing dataset finished.')
 model = Transformer(
     args.vocab_size,
     args.vocab_size,
-    src_pad_idx=0,
-    trg_pad_idx=0,
+    src_pad_idx=args.src_pad_idx,
+    trg_pad_idx=args.trg_pad_idx,
+    args=args,
     trg_emb_prj_weight_sharing=args.proj_share_weight,
     emb_src_trg_weight_sharing=args.embs_share_weight,
     d_k=args.d_k,
@@ -158,38 +163,60 @@ if not os.path.exists(args.output_dir):
 
 
 
-def cal_performance(pred, gold, trg_pad_idx, smoothing=False):
+def cal_performance(pred, gold, trg_pad_idx, args, smoothing=False):
     ''' Apply label smoothing if needed '''
 
-    loss = cal_loss(pred, gold, trg_pad_idx, smoothing=smoothing)
+    loss = cal_loss(pred, gold, trg_pad_idx, args, smoothing=smoothing)
+    if args.input_type == 'node_based':
+        pred = pred.max(1)[1]
+        gold = gold.contiguous().view(-1)
+        non_pad_mask = gold.ne(trg_pad_idx)
+        n_correct = pred.eq(gold).masked_select(non_pad_mask).sum().item()
+        n_word = non_pad_mask.sum().item()
 
-    pred = pred.max(1)[1]
-    gold = gold.contiguous().view(-1)
-    non_pad_mask = gold.ne(trg_pad_idx)
-    n_correct = pred.eq(gold).masked_select(non_pad_mask).sum().item()
-    n_word = non_pad_mask.sum().item()
-
-    return loss, n_correct, n_word
+        return loss, n_correct, n_word
+    elif args.input_type == 'preceding_neighbors_vector':
+        return loss, None
+    else:
+        raise NotImplementedError
 
 
-def cal_loss(pred, gold, trg_pad_idx, smoothing=False):
+def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
 
     gold = gold.contiguous().view(-1)
 
     if smoothing:
-        eps = 0.1
-        n_class = pred.size(1)
+        if args.input_type == 'node_based':
+            eps = 0.1
+            n_class = pred.size(1)
 
-        one_hot = torch.zeros_like(pred).scatter(1, gold.view(-1, 1), 1)
-        one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (n_class - 1)
-        log_prb = F.log_softmax(pred, dim=1)
+            one_hot = torch.zeros_like(pred).scatter(1, gold.view(-1, 1), 1)
+            one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (n_class - 1)
+            log_prb = F.log_softmax(pred, dim=1)
 
-        non_pad_mask = gold.ne(trg_pad_idx)
-        loss = -(one_hot * log_prb).sum(dim=1)
-        loss = loss.masked_select(non_pad_mask).sum()  # average later
+            non_pad_mask = gold.ne(trg_pad_idx)
+            loss = -(one_hot * log_prb).sum(dim=1)
+            loss = loss.masked_select(non_pad_mask).sum()  # average later
+        else:
+            raise NotImplementedError
     else:
-        loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
+        if args.input_type == 'node_based':
+            loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
+        elif args.input_type == 'preceding_neighbors_vector':
+            gold = gold.view(-1, pred.size(-1))
+            pred = F.sigmoid(pred)
+            cond = gold != args.trg_pad_idx
+
+            pred = cond * pred
+            gold = cond * gold
+
+            gold = torch.tril(gold.view(-1, args.max_seq_len, gold.size(-1)), diagonal=-1)
+            pred = torch.tril(pred.view(-1, args.max_seq_len, pred.size(-1)), diagonal=-1)
+
+            loss = F.binary_cross_entropy(pred, gold, reduction='sum')
+        else:
+            raise NotImplementedError
     return loss
 
 def generate_graph(gg_model, args):
@@ -197,14 +224,23 @@ def generate_graph(gg_model, args):
     # return None
     gg_model.eval()
 
-    src_seq = torch.zeros((args.test_batch_size, args.max_seq_len), dtype=torch.long).to(args.device)
-    for i in range(args.max_seq_len - 1):
-        #pred = gg_model(src_seq, src_seq).max(1)[1].view([args.test_batch_size, args.max_seq_len])
-        pred_logprobs = gg_model(src_seq, src_seq) #.max(1)[1].view([args.test_batch_size, args.max_seq_len])
-        pred_probs = pred_logprobs.exp() / pred_logprobs.exp().sum(axis=-1, keepdim=True).repeat(1,pred_logprobs.size(-1))
-        pred = torch.tensor([np.random.choice(np.arange(probs.size(0)),size=1,p=probs.detach().cpu().numpy())[0]
-                             for probs in pred_probs]).view([args.test_batch_size, args.max_seq_len]).to(args.device)
-        src_seq[:, i + 1] = pred[:, i]
+    if args.input_type == 'node_based':
+        src_seq = torch.zeros((args.test_batch_size, args.max_seq_len), dtype=torch.long).to(args.device)
+        for i in range(args.max_seq_len - 1):
+            #pred = gg_model(src_seq, src_seq).max(1)[1].view([args.test_batch_size, args.max_seq_len])
+            pred_logprobs = gg_model(src_seq, src_seq) #.max(1)[1].view([args.test_batch_size, args.max_seq_len])
+            pred_probs = pred_logprobs.exp() / pred_logprobs.exp().sum(axis=-1, keepdim=True).repeat(1,pred_logprobs.size(-1))
+            pred = torch.tensor([np.random.choice(np.arange(probs.size(0)),size=1,p=probs.detach().cpu().numpy())[0]
+                                 for probs in pred_probs]).view([args.test_batch_size, args.max_seq_len]).to(args.device)
+            src_seq[:, i + 1] = pred[:, i]
+    elif args.input_type == 'preceding_neighbors_vector':
+        src_seq = -1 * torch.ones((args.test_batch_size, args.max_seq_len, args.max_num_node), dtype=torch.float32).to(args.device)
+        for i in range(args.max_seq_len - 1):
+            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq)).view(-1, args.max_seq_len, args.max_num_node)
+            src_seq[:, i+1, :] = (torch.rand(pred_probs[:, i, :].size(), device=args.device) < pred_probs[:, i, :]).float()
+    else:
+        raise NotImplementedError
+
 
     # save graphs as pickle
     G_pred_list = []
@@ -239,7 +275,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
             optimizer.zero_grad()
             pred = gg_model(src_seq, trg_seq)
-            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, smoothing=False)
+            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
             optimizer.step_and_update_lr()
@@ -256,7 +292,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             gold = data['trg_seq'].contiguous().to(args.device)
 
             pred = gg_model(src_seq, trg_seq)
-            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, smoothing=False)
+            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
 
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
@@ -290,10 +326,5 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
     #             torch.save(output.state_dict(), fname)
     #     epoch += 1
     # np.save(args.timing_save_path+args.fname,time_all)
-
-
-print('############# vocab_size: ', args.vocab_size)
-print('############# max_seq_len: ', args.max_seq_len)
-
 
 train(model, dataset_loader, val_dataset_loader, optimizer, args)

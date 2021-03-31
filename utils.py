@@ -440,7 +440,9 @@ def pick_connected_component(G):
     return G.subgraph(node_list)
 
 def pick_connected_component_new(G):
-    adj_list = G.adjacency_list()
+    # adj_list = G.adjacency_list()
+    adj_dict = {n:nbrdict for n, nbrdict in G.adjacency()}
+    adj_list = [list(adj_dict[v].keys()) for v in G.nodes()]
     for id,adj in enumerate(adj_list):
         id_min = min(adj)
         if id<id_min and id>=1:
@@ -448,7 +450,8 @@ def pick_connected_component_new(G):
             break
     node_list = list(range(id)) # only include node prior than node "id"
     G = G.subgraph(node_list)
-    G = max(nx.connected_component_subgraphs(G), key=len)
+    G = max([G.subgraph(c).copy() for c in nx.connected_components(G)], key=len)
+    # G = max(nx.connected_component_subgraphs(G), key=len)
     return G
 
 # load a list of graphs
@@ -456,11 +459,13 @@ def load_graph_list(fname,is_real=True):
     with open(fname, "rb") as f:
         graph_list = pickle.load(f)
     for i in range(len(graph_list)):
-        edges_with_selfloops = graph_list[i].selfloop_edges()
+        # edges_with_selfloops = graph_list[i].selfloop_edges()
+        edges_with_selfloops = list(nx.selfloop_edges(graph_list[i], data=True))
         if len(edges_with_selfloops)>0:
             graph_list[i].remove_edges_from(edges_with_selfloops)
         if is_real:
-            graph_list[i] = max(nx.connected_component_subgraphs(graph_list[i]), key=len)
+            graph_list[i] = max([graph_list[i].subgraph(c).copy() for c in nx.connected_components(graph_list[i])], key=len)
+            # graph_list[i] = max(nx.connected_component_subgraphs(graph_list[i]), key=len)
             graph_list[i] = nx.convert_node_labels_to_integers(graph_list[i])
         else:
             graph_list[i] = pick_connected_component_new(graph_list[i])
