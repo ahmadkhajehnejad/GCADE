@@ -205,7 +205,7 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
         elif args.input_type == 'preceding_neighbors_vector':
             gold = gold.view(-1, pred.size(-1))
-            pred = F.sigmoid(pred)
+            pred = torch.sigmoid(pred)
             cond = gold != args.trg_pad_idx
 
             pred = cond * pred

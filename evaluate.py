@@ -212,7 +212,6 @@ def evaluation_epoch(dir_input, fname_output, model_name, dataset_name, args, is
                     # fname_pred = dir_input + model_name + '_' + dataset_name + '_' + str(args.num_layers) + '_' + str(hidden) + '_pred_' + str(epoch) + '_' + str(sample_time) + '.dat'
                     fname_pred = dir_input + model_name + '_' + dataset_name + '_' + args.input_type + '_pred_' + str(epoch) + '_' + str(sample_time) + '.dat'
                     # load graphs
-                    graph_pred = utils.load_graph_list(fname_pred, is_real=False)  # default False
                     try:
                         graph_pred = utils.load_graph_list(fname_pred,is_real=False) # default False
                     except:

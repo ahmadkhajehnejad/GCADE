@@ -276,6 +276,9 @@ def my_decode_adj(generated_seq, args):
             adj[n-1,j] = adj[j,n-1] = 1
         adj = adj[:n, :n]
     elif args.input_type == 'preceding_neighbors_vector':
+        if generated_seq[1, 0] == 0:
+            print('       __ERR: single node graph.')
+            generated_seq[1, 0] = 1
         adj = np.zeros([args.max_num_node, args.max_num_node])
         for i in range(generated_seq.shape[0]):
             if (i > 0) and (not np.any(generated_seq[i,:i])):
