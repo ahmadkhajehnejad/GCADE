@@ -148,7 +148,7 @@ class Transformer(nn.Module):
     def __init__(
             self, n_src_vocab, n_trg_vocab, src_pad_idx, trg_pad_idx, args,
             d_word_vec=512, d_model=512, d_inner=2048,
-            n_layers=6, n_head=8, d_k=64, d_v=64, dropout=0.1, n_position=1000,
+            n_layers=6, n_ensemble=8, n_head=8, d_k=64, d_v=64, dropout=0.1, n_position=1000,
             trg_emb_prj_weight_sharing=True, emb_src_trg_weight_sharing=True,
             scale_emb_or_prj='prj'):
 
@@ -171,6 +171,8 @@ class Transformer(nn.Module):
         scale_emb = (scale_emb_or_prj == 'emb') if trg_emb_prj_weight_sharing else False
         self.scale_prj = (scale_emb_or_prj == 'prj') if trg_emb_prj_weight_sharing else False
         self.d_model = d_model
+        self.n_ensemble = n_ensemble
+        self.input_type = args.input_type
 
         self.encoder = Encoder(
             n_src_vocab=n_src_vocab, n_position=n_position,
@@ -187,7 +189,7 @@ class Transformer(nn.Module):
         if args.input_type == 'node_based':
             self.trg_word_prj = nn.Linear(d_model, n_trg_vocab, bias=False)
         elif args.input_type == 'preceding_neighbors_vector':
-            self.trg_word_prj = nn.Linear(d_model, args.max_num_node, bias=False)  #TODO: test bias=True
+            self.trg_word_prj = nn.Linear(d_model * n_ensemble, args.max_num_node, bias=False)  #TODO: test bias=True
         else:
             raise NotImplementedError
 
@@ -218,11 +220,27 @@ class Transformer(nn.Module):
         src_mask = get_pad_mask(src_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(src_seq)
         trg_mask = get_pad_mask(trg_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(trg_seq)
 
+        if self.input_type == 'preceding_neighbors_vector':
+            src_mask = ensembleMask(src_mask, self.n_ensemble)
+            trg_mask = ensembleMask(trg_mask, self.n_ensemble)
+            sz_b, sz_seq = src_seq.size(0), src_seq.size(1)
+            src_seq = src_seq.unsqueeze(2).repeat(1,1,self.n_ensemble,1).reshape(sz_b, sz_seq * self.n_ensemble, -1)
+            trg_seq = trg_seq.unsqueeze(2).repeat(1,1,self.n_ensemble,1).reshape(sz_b, sz_seq * self.n_ensemble, -1)
+
         enc_output, *_ = self.encoder(src_seq, src_mask)
         dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask)
 
+        if self.input_type == 'preceding_neighbors_vector':
+            dec_output = dec_output.reshape(dec_output.size(0), -1, dec_output.size(2) * self.n_ensemble)
         seq_logit = self.trg_word_prj(dec_output)
         if self.scale_prj:
             seq_logit *= self.d_model ** -0.5
 
         return seq_logit.view(-1, seq_logit.size(2))
+
+
+def ensembleMask(mask,n_ensemble):
+    ##  mask is sz_b * seq_len * seq_len
+    mask = mask.unsqueeze(-2).unsqueeze(-1).repeat(1, 1, n_ensemble, 1, n_ensemble)
+    mask = mask.reshape(mask.size(0), mask.size(1) * mask.size(2), mask.size(3) * mask.size(4))
+    return mask

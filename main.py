@@ -148,6 +148,7 @@ model = Transformer(
     d_word_vec=args.d_word_vec,
     d_inner=args.d_inner_hid,
     n_layers=args.n_layers,
+    n_ensemble=args.n_ensemble,
     n_head=args.n_head,
     dropout=args.dropout,
     scale_emb_or_prj=args.scale_emb_or_prj).to(args.device)

@@ -87,7 +87,8 @@ class Args():
         self.d_k = 20 # 64
         self.d_v = 20 # 64
         self.n_layers = 3 # 6
-        self.n_head = 8 # 1
+        self.n_head = 1 # 8
+        self.n_ensemble = 1 # 8
         self.dropout = 0.1
         self.proj_share_weight = False # True
         self.embs_share_weight = True
