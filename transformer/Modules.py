@@ -35,7 +35,7 @@ class ScaledDotProductAttention(nn.Module):
 #
 #     def forward(self, q, k, v, mask=None):
 #
-#         len_q, len_k, len_v = q.size(2), k.size(2), v.size(2)
+#         len_q, len_k, len_v = q.size(3), k.size(3), v.size(3)
 #
 #         attn = torch.matmul(q / self.temperature, k.transpose(2, 3))
 #

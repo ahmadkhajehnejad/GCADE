@@ -27,9 +27,10 @@ def get_subsequent_mask(seq):
 
 class PositionalEncoding(nn.Module):
 
-    def __init__(self, d_hid, n_position=1000):
+    def __init__(self, args, d_hid, n_position=1000):
         super(PositionalEncoding, self).__init__()
 
+        self.input_type = args.input_type
         # Not a parameter
         self.register_buffer('pos_table', self._get_sinusoid_encoding_table(n_position, d_hid))
 
@@ -47,14 +48,17 @@ class PositionalEncoding(nn.Module):
         return torch.FloatTensor(sinusoid_table).unsqueeze(0)
 
     def forward(self, x):
-        return x + self.pos_table[:, :x.size(1)].clone().detach()
+        if self.input_type == 'preceding_neighbors_vector':
+            return x + self.pos_table[:, :x.size(1)].unsqueeze(-2).clone().detach()
+        else:
+            return x + self.pos_table[:, :x.size(1)].clone().detach()
 
 
 class Encoder(nn.Module):
     ''' A encoder model with self attention mechanism. '''
 
     def __init__(
-            self, n_src_vocab, d_word_vec, n_layers, n_head, d_k, d_v,
+            self, n_src_vocab, d_word_vec, n_layers, n_ensemble, n_head, d_k, d_v,
             d_model, d_inner, pad_idx, args, dropout=0.1, n_position=1000, scale_emb=False):
 
         super().__init__()
@@ -66,10 +70,10 @@ class Encoder(nn.Module):
         else:
             raise NotImplementedError
         # self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
-        self.position_enc = PositionalEncoding(d_word_vec, n_position=n_position)
+        self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
@@ -99,7 +103,7 @@ class Decoder(nn.Module):
     ''' A decoder model with self attention mechanism. '''
 
     def __init__(
-            self, n_trg_vocab, d_word_vec, n_layers, n_head, d_k, d_v,
+            self, n_trg_vocab, d_word_vec, n_layers, n_ensemble, n_head, d_k, d_v,
             d_model, d_inner, pad_idx, args, n_position=1000, dropout=0.1, scale_emb=False):
 
         super().__init__()
@@ -111,10 +115,10 @@ class Decoder(nn.Module):
         else:
             raise NotImplementedError
         # self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
-        self.position_enc = PositionalEncoding(d_word_vec, n_position=n_position)
+        self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
-            DecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
@@ -177,13 +181,13 @@ class Transformer(nn.Module):
         self.encoder = Encoder(
             n_src_vocab=n_src_vocab, n_position=n_position,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
-            n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
+            n_layers=n_layers, n_ensemble=n_ensemble, n_head=n_head, d_k=d_k, d_v=d_v,
             pad_idx=src_pad_idx, args=args, dropout=dropout, scale_emb=scale_emb)
 
         self.decoder = Decoder(
             n_trg_vocab=n_trg_vocab, n_position=n_position,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
-            n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
+            n_layers=n_layers, n_ensemble=n_ensemble, n_head=n_head, d_k=d_k, d_v=d_v,
             pad_idx=trg_pad_idx, args=args, dropout=dropout, scale_emb=scale_emb)
 
         if args.input_type == 'node_based':
@@ -221,17 +225,14 @@ class Transformer(nn.Module):
         trg_mask = get_pad_mask(trg_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(trg_seq)
 
         if self.input_type == 'preceding_neighbors_vector':
-            src_mask = ensembleMask(src_mask, self.n_ensemble)
-            trg_mask = ensembleMask(trg_mask, self.n_ensemble)
-            sz_b, sz_seq = src_seq.size(0), src_seq.size(1)
-            src_seq = src_seq.unsqueeze(2).repeat(1,1,self.n_ensemble,1).reshape(sz_b, sz_seq * self.n_ensemble, -1)
-            trg_seq = trg_seq.unsqueeze(2).repeat(1,1,self.n_ensemble,1).reshape(sz_b, sz_seq * self.n_ensemble, -1)
+            src_seq = src_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
+            trg_seq = trg_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
 
         enc_output, *_ = self.encoder(src_seq, src_mask)
         dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask)
 
         if self.input_type == 'preceding_neighbors_vector':
-            dec_output = dec_output.reshape(dec_output.size(0), -1, dec_output.size(2) * self.n_ensemble)
+            dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
         seq_logit = self.trg_word_prj(dec_output)
         if self.scale_prj:
             seq_logit *= self.d_model ** -0.5
@@ -239,8 +240,8 @@ class Transformer(nn.Module):
         return seq_logit.view(-1, seq_logit.size(2))
 
 
-def ensembleMask(mask,n_ensemble):
-    ##  mask is sz_b * seq_len * seq_len
-    mask = mask.unsqueeze(-2).unsqueeze(-1).repeat(1, 1, n_ensemble, 1, n_ensemble)
-    mask = mask.reshape(mask.size(0), mask.size(1) * mask.size(2), mask.size(3) * mask.size(4))
-    return mask
+# def ensembleMask(mask,n_ensemble):
+#     ##  mask is sz_b * seq_len * seq_len
+#     mask = mask.unsqueeze(-2).unsqueeze(-1).repeat(1, 1, n_ensemble, 1, n_ensemble)
+#     mask = mask.reshape(mask.size(0), mask.size(1) * mask.size(2), mask.size(3) * mask.size(4))
+#     return mask
