@@ -276,16 +276,21 @@ def my_decode_adj(generated_seq, args):
             adj[n-1,j] = adj[j,n-1] = 1
         adj = adj[:n, :n]
     elif args.input_type == 'preceding_neighbors_vector':
-        if generated_seq[1, 0] == 0:
+        if generated_seq[0, 0] == 1:
+            print('       __ERR: empty graph.')
+            generated_seq[0, 0] = 0
+        if generated_seq[1, 0] == 1:
             print('       __ERR: single node graph.')
-            generated_seq[1, 0] = 1
+            generated_seq[1, 0] = 0
+        if generated_seq[1, 1] == 0:
+            print('       __ERR: no edge.')
         adj = np.zeros([args.max_num_node, args.max_num_node])
         for i in range(generated_seq.shape[0]):
-            if (i > 0) and (not np.any(generated_seq[i,:i])):
+            if generated_seq[i, 0] == 1:
                 adj = adj[:i, :i]
                 break
-            adj[i,:i] = generated_seq[i,:i]
-            adj[:i,i] = generated_seq[i,:i]
+            adj[i, :i] = generated_seq[i, 1:i+1]
+            adj[:i, i] = generated_seq[i, 1:i+1]
     else:
         raise NotImplementedError
 
@@ -591,12 +596,14 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
 
             src_seq[1:] = trg_seq[:-1].copy()
         elif self.input_type == 'preceding_neighbors_vector':
-            trg_seq = -1 * np.ones([self.max_seq_len, self.n], dtype=np.float32)
-            src_seq = -1 * np.ones([self.max_seq_len, self.n], dtype=np.float32)
+            trg_seq = -1 * np.ones([self.max_seq_len, self.n + 1], dtype=np.float32)
+            src_seq = -1 * np.ones([self.max_seq_len, self.n + 1], dtype=np.float32)
             for i in range(len_batch):
-                trg_seq[i,:adj_copy.shape[1]] = adj_copy[i,:].copy()
-                trg_seq[i,i:] = 0
-            trg_seq[len_batch,:] = 0
+                trg_seq[i,1:adj_copy.shape[1] + 1] = adj_copy[i, :].copy()
+                trg_seq[i, 0] = 0     # termination bit
+                trg_seq[i, i+1:] = 0
+            trg_seq[len_batch, :] = 0
+            trg_seq[len_batch, 0] = 1     # termination bit
             src_seq[1:,:] = trg_seq[:-1,:].copy()
 
         else:

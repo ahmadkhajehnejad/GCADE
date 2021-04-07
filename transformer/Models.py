@@ -66,7 +66,7 @@ class Encoder(nn.Module):
         if args.input_type == 'node_based':
             self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
         elif args.input_type == 'preceding_neighbors_vector':
-            self.src_word_emb = nn.Linear(args.max_num_node, d_word_vec, bias=False)  #TODO: test bias=True
+            self.src_word_emb = nn.Linear(args.max_num_node + 1, d_word_vec, bias=False)  #TODO: test bias=True
         else:
             raise NotImplementedError
         # self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
@@ -111,7 +111,7 @@ class Decoder(nn.Module):
         if args.input_type == 'node_based':
             self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
         elif args.input_type == 'preceding_neighbors_vector':
-            self.trg_word_emb = nn.Linear(args.max_num_node, d_word_vec, bias=False)  #TODO: test bias=True
+            self.trg_word_emb = nn.Linear(args.max_num_node + 1, d_word_vec, bias=False)  #TODO: test bias=True
         else:
             raise NotImplementedError
         # self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
@@ -193,7 +193,7 @@ class Transformer(nn.Module):
         if args.input_type == 'node_based':
             self.trg_word_prj = nn.Linear(d_model, n_trg_vocab, bias=False)
         elif args.input_type == 'preceding_neighbors_vector':
-            self.trg_word_prj = nn.Linear(d_model * n_ensemble, args.max_num_node, bias=False)  #TODO: test bias=True
+            self.trg_word_prj = nn.Linear(d_model * n_ensemble, args.max_num_node + 1, bias=False)  #TODO: test bias=True
         else:
             raise NotImplementedError
 

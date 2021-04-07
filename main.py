@@ -185,10 +185,9 @@ def cal_performance(pred, gold, trg_pad_idx, args, smoothing=False):
 def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
 
-    gold = gold.contiguous().view(-1)
-
     if smoothing:
         if args.input_type == 'node_based':
+            gold = gold.contiguous().view(-1)
             eps = 0.1
             n_class = pred.size(1)
 
@@ -203,19 +202,37 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             raise NotImplementedError
     else:
         if args.input_type == 'node_based':
+            gold = gold.contiguous().view(-1)
             loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
         elif args.input_type == 'preceding_neighbors_vector':
-            gold = gold.view(-1, pred.size(-1))
-            pred = torch.sigmoid(pred)
-            cond = gold != args.trg_pad_idx
 
-            pred = cond * pred
-            gold = cond * gold
+            pred = torch.sigmoid(pred).view(-1, args.max_seq_len, pred.size(-1))
+            # gold = gold.view(-1, args.max_seq_len, gold.size(-1))
 
-            gold = torch.tril(gold.view(-1, args.max_seq_len, gold.size(-1)), diagonal=-1)
-            pred = torch.tril(pred.view(-1, args.max_seq_len, pred.size(-1)), diagonal=-1)
+            # print('\n', pred)
 
-            loss = F.binary_cross_entropy(pred, gold, reduction='sum')
+
+            cond_1 = gold != args.trg_pad_idx
+            pred_1 = torch.tril(pred * cond_1, diagonal=0)
+            gold_1 = torch.tril(gold * cond_1, diagonal=0)
+
+            cond_0 = gold[:,:,0] != args.trg_pad_idx
+            cond_0[:, 0] = False
+            cond_2 = cond_0.unsqueeze(-1).repeat(1, 1, gold.size(-1))
+            pred_2 = torch.tril(pred * cond_2, diagonal=0)
+            gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
+
+            # print(pred_1[0])
+
+            loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='sum')
+
+            p_zero = torch.exp(-F.binary_cross_entropy(pred_2, gold_2, reduction='none').sum(-1))
+            loss_2 = torch.log(1-p_zero[cond_0]).sum()
+            loss = loss_1 + loss_2
+            # print('###############################   ', p_zero[cond_0].max().item())
+            # print('#########################                ', loss_1.item(), loss_2.item(), loss.item())
+            # input()
+            # loss = loss_1
         else:
             raise NotImplementedError
     return loss
@@ -235,10 +252,28 @@ def generate_graph(gg_model, args):
                                  for probs in pred_probs]).view([args.test_batch_size, args.max_seq_len]).to(args.device)
             src_seq[:, i + 1] = pred[:, i]
     elif args.input_type == 'preceding_neighbors_vector':
-        src_seq = -1 * torch.ones((args.test_batch_size, args.max_seq_len, args.max_num_node), dtype=torch.float32).to(args.device)
+        src_seq = -1 * torch.ones((args.test_batch_size, args.max_seq_len, args.max_num_node + 1),
+                                  dtype=torch.float32).to(args.device)
+        not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
         for i in range(args.max_seq_len - 1):
-            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq)).view(-1, args.max_seq_len, args.max_num_node)
-            src_seq[:, i+1, :] = (torch.rand(pred_probs[:, i, :].size(), device=args.device) < pred_probs[:, i, :]).float()
+            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq)).view(-1, args.max_seq_len, args.max_num_node + 1)
+            num_trials = 0
+            remainder_idx = not_finished_idx.clone()
+            while remainder_idx.sum().item() > 0:
+                num_trials += 1
+                src_seq[remainder_idx, i + 1, :i+1] = (torch.rand([remainder_idx.sum().item(), i + 1],
+                                                               device=args.device) < pred_probs[remainder_idx, i, :i + 1]).float()
+                if i == 0:
+                    break
+                remainder_idx = remainder_idx & ((src_seq[:, i + 1, :] == 1).sum(-1) == 0)
+            not_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] != 1)
+            print('                          ', i, '      num of trials:', num_trials)
+            if not_finished_idx.sum().item() == 0:
+                break
+
+        # for i in range(args.max_seq_len - 1):
+        #     pred_probs = torch.sigmoid(gg_model(src_seq, src_seq)).view(-1, args.max_seq_len, args.max_num_node + 1)
+        #     src_seq[:, i+1, :] = (torch.rand(pred_probs[:, i, :].size(), device=args.device) < pred_probs[:, i, :]).float()
     else:
         raise NotImplementedError
 
