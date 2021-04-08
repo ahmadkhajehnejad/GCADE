@@ -259,6 +259,7 @@ def generate_graph(gg_model, args):
             pred_probs = torch.sigmoid(gg_model(src_seq, src_seq)).view(-1, args.max_seq_len, args.max_num_node + 1)
             num_trials = 0
             remainder_idx = not_finished_idx.clone()
+            src_seq[remainder_idx, i+1, i+1:] = 0
             while remainder_idx.sum().item() > 0:
                 num_trials += 1
                 src_seq[remainder_idx, i + 1, :i+1] = (torch.rand([remainder_idx.sum().item(), i + 1],
