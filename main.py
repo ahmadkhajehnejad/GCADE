@@ -239,6 +239,7 @@ def generate_graph(gg_model, args):
         for i in range(args.max_seq_len - 1):
             pred_probs = torch.sigmoid(gg_model(src_seq, src_seq)).view(-1, args.max_seq_len, args.max_num_node)
             src_seq[:, i+1, :] = (torch.rand(pred_probs[:, i, :].size(), device=args.device) < pred_probs[:, i, :]).float()
+            src_seq[:, i+1, i:] = 0
     else:
         raise NotImplementedError
 
