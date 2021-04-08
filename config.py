@@ -69,12 +69,16 @@ class Args():
         self.note = 'Gransformer'
 
         self.input_type = 'preceding_neighbors_vector' # 'node_based'
+        self.output_positional_embedding = False # True
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0
         elif self.input_type == 'preceding_neighbors_vector':
-            self.trg_pad_idx = -1
-            self.src_pad_idx = -1
+            self.trg_pad_idx = -2
+            self.src_pad_idx = -2
+            self.zero_input = -1
+            self.one_input = 1
+            self.dontcare_input = 0
         else:
             raise NotImplementedError
 

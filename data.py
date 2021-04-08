@@ -526,6 +526,7 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         self.input_type = args.input_type
         self.adj_all = []
         self.len_all = []
+        self.args = args
         for G in G_list:
             self.adj_all.append(np.asarray(nx.to_numpy_matrix(G)))
             self.len_all.append(G.number_of_nodes())
@@ -596,15 +597,21 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
 
             src_seq[1:] = trg_seq[:-1].copy()
         elif self.input_type == 'preceding_neighbors_vector':
-            trg_seq = -1 * np.ones([self.max_seq_len, self.n + 1], dtype=np.float32)
-            src_seq = -1 * np.ones([self.max_seq_len, self.n + 1], dtype=np.float32)
+            trg_seq = self.args.trg_pad_idx * np.ones([self.max_seq_len, self.n + 1], dtype=np.float32)
+            src_seq = self.args.src_pad_idx * np.ones([self.max_seq_len, self.n + 1], dtype=np.float32)
+            assert self.args.src_pad_idx == self.args.trg_pad_idx
             for i in range(len_batch):
-                trg_seq[i,1:adj_copy.shape[1] + 1] = adj_copy[i, :].copy()
-                trg_seq[i, 0] = 0     # termination bit
-                trg_seq[i, i+1:] = 0
-            trg_seq[len_batch, :] = 0
-            trg_seq[len_batch, 0] = 1     # termination bit
-            src_seq[1:,:] = trg_seq[:-1,:].copy()
+                tmp = adj_copy[i, :].copy()
+                ind_0 = tmp == 0
+                tmp[ind_0] = self.args.zero_input
+                ind_1 = tmp == 1
+                tmp[ind_1] = self.args.one_input
+                trg_seq[i,1:adj_copy.shape[1] + 1] = tmp
+                trg_seq[i, 0] = self.args.zero_input     # termination bit
+                trg_seq[i, i+1:] = self.args.dontcare_input
+            trg_seq[len_batch, :] = self.args.zero_input
+            trg_seq[len_batch, 0] = self.args.one_input     # termination bit
+            src_seq[1:, :] = trg_seq[:-1, :].copy()
 
         else:
             raise NotImplementedError

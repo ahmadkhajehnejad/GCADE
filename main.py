@@ -211,6 +211,15 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
 
             # print('\n', pred)
 
+            gold = gold.clone()
+            ind_0 = gold == args.zero_input
+            ind_1 = gold == args.one_input
+            ind_2 = gold == args.dontcare_input
+            ind_3 = gold == args.trg_pad_idx
+            gold[ind_0] = 0
+            gold[ind_1] = 1
+            gold[ind_2] = 0
+            gold[ind_3] = -1
 
             cond_1 = gold != args.trg_pad_idx
             pred_1 = torch.tril(pred * cond_1, diagonal=0)
