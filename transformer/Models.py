@@ -25,6 +25,12 @@ def get_subsequent_mask(seq):
     return subsequent_mask
 
 
+def outputPositionalEncoding(data):
+    seq_len = data.size(1)
+    # return torch.eye(seq_len, device=data.device).unsqueeze(0).repeat(data.size(0), 1, 1)
+    return torch.tril( torch.ones(data.size(0), seq_len, seq_len, device=data.device), diagonal=0)
+
+
 class PositionalEncoding(nn.Module):
 
     def __init__(self, args, d_hid, n_position=1000):
@@ -176,7 +182,6 @@ class Transformer(nn.Module):
         self.scale_prj = (scale_emb_or_prj == 'prj') if trg_emb_prj_weight_sharing else False
         self.d_model = d_model
         self.n_ensemble = n_ensemble
-        self.input_type = args.input_type
 
         self.encoder = Encoder(
             n_src_vocab=n_src_vocab, n_position=n_position,
@@ -193,7 +198,11 @@ class Transformer(nn.Module):
         if args.input_type == 'node_based':
             self.trg_word_prj = nn.Linear(d_model, n_trg_vocab, bias=False)
         elif args.input_type == 'preceding_neighbors_vector':
-            self.trg_word_prj = nn.Linear(d_model * n_ensemble, args.max_num_node + 1, bias=False)  #TODO: test bias=True
+            if args.output_positional_embedding:
+                self.trg_word_prj = nn.Linear(d_model * n_ensemble + args.max_seq_len, args.max_num_node + 1,
+                                              bias=False)  # TODO: test bias=True
+            else:
+                self.trg_word_prj = nn.Linear(d_model * n_ensemble, args.max_num_node + 1, bias=False)  #TODO: test bias=True
         else:
             raise NotImplementedError
 
@@ -224,15 +233,18 @@ class Transformer(nn.Module):
         src_mask = get_pad_mask(src_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(src_seq)
         trg_mask = get_pad_mask(trg_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(trg_seq)
 
-        if self.input_type == 'preceding_neighbors_vector':
+        if self.args.input_type == 'preceding_neighbors_vector':
             src_seq = src_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
             trg_seq = trg_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
 
         enc_output, *_ = self.encoder(src_seq, src_mask)
         dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask)
 
-        if self.input_type == 'preceding_neighbors_vector':
+        if self.args.input_type == 'preceding_neighbors_vector':
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
+            if self.args.output_positional_embedding:
+                dec_output = torch.cat([dec_output, outputPositionalEncoding(dec_output)], dim=2)
+
         seq_logit = self.trg_word_prj(dec_output)
         if self.scale_prj:
             seq_logit *= self.d_model ** -0.5
