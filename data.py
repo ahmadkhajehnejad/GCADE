@@ -603,13 +603,13 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
             for i in range(len_batch):
                 tmp = adj_copy[i, :].copy()
                 ind_0 = tmp == 0
-                tmp[ind_0] = self.args.zero_input
                 ind_1 = tmp == 1
+                tmp[ind_0] = self.args.zero_input
                 tmp[ind_1] = self.args.one_input
                 trg_seq[i,1:adj_copy.shape[1] + 1] = tmp
                 trg_seq[i, 0] = self.args.zero_input     # termination bit
                 trg_seq[i, i+1:] = self.args.dontcare_input
-            trg_seq[len_batch, :] = self.args.zero_input
+            trg_seq[len_batch, :] = self.args.dontcare_input
             trg_seq[len_batch, 0] = self.args.one_input     # termination bit
             src_seq[1:, :] = trg_seq[:-1, :].copy()
 
