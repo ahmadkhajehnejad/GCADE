@@ -23,14 +23,14 @@ class Args_evaluate():
         # list of dataset to evaluate
         # use a list of 1 element to evaluate a single dataset
         # self.dataset_name_all = ['caveman', 'grid', 'barabasi', 'citeseer', 'DD']
-        self.dataset_name_all = ['citeseer_small']
+        self.dataset_name_all = ['citeseer_small'] #['citeseer']
         # self.dataset_name_all = ['citeseer_small','caveman_small']
         # self.dataset_name_all = ['barabasi_noise0','barabasi_noise2','barabasi_noise4','barabasi_noise6','barabasi_noise8','barabasi_noise10']
         # self.dataset_name_all = ['caveman_small', 'ladder_small', 'grid_small', 'ladder_small', 'enzymes_small', 'barabasi_small','citeseer_small']
 
-        self.epoch_start=40
-        self.epoch_end=111
-        self.epoch_step=10
+        self.epoch_start=10
+        self.epoch_end=51
+        self.epoch_step=5
 
 def find_nearest_idx(array,value):
     idx = (np.abs(array-value)).argmin()
@@ -112,6 +112,10 @@ def clean_graphs(graph_real, graph_pred):
     # get length
     real_graph_len = np.array([len(graph_real[i]) for i in range(len(graph_real))])
     pred_graph_len = np.array([len(graph_pred[i]) for i in range(len(graph_pred))])
+
+    print(sorted(real_graph_len))
+    print(sorted(pred_graph_len))
+    input()
 
     # select pred samples
     # The number of nodes are sampled from the similar distribution as the training set

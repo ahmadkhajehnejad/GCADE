@@ -46,14 +46,14 @@ class Args():
 
         self.batch_size = 32  # normal: 32, and the rest should be changed accordingly
         self.test_batch_size = 32
-        self.test_total_size = 30 # 1000
+        self.test_total_size = 100 # 1000
 
         ### training config
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32  # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epochs = 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 40 # 10
-        self.epochs_test = 10 # 100
+        self.epochs_test_start = 10 # 10
+        self.epochs_test = 5 # 100
         self.epochs_log = 100
         self.epochs_save = 100
 
@@ -69,12 +69,16 @@ class Args():
         self.note = 'Gransformer'
 
         self.input_type = 'preceding_neighbors_vector' # 'node_based'
+        self.output_positional_embedding = False # True
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0
         elif self.input_type == 'preceding_neighbors_vector':
-            self.trg_pad_idx = -1
-            self.src_pad_idx = -1
+            self.trg_pad_idx = -2
+            self.src_pad_idx = -2  # must be equal to self.trg_pad_idx
+            self.zero_input = -1
+            self.one_input = 1
+            self.dontcare_input = 0
         else:
             raise NotImplementedError
 
