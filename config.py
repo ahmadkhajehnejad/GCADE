@@ -75,7 +75,7 @@ class Args():
             self.src_pad_idx = 0
         elif self.input_type == 'preceding_neighbors_vector':
             self.trg_pad_idx = -2
-            self.src_pad_idx = -2
+            self.src_pad_idx = -2  # must be equal to self.trg_pad_idx
             self.zero_input = -1
             self.one_input = 1
             self.dontcare_input = 0

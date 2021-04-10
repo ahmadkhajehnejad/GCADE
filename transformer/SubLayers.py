@@ -198,3 +198,28 @@ class PositionwiseFeedForward(nn.Module):
         x = self.layer_norm(x)
 
         return x
+
+
+# sz_b = 5
+# n_ensemble_q = n_ensemble_k = 2
+# n_head = 1
+# d_model = 3
+# d_k = d_v = 4
+#
+# ensembleMultiHeadAttention = EnsembleMultiHeadAttention(n_ensemble_q, n_ensemble_k, n_head, d_model, d_k, d_v)
+#
+# len_q = len_k = len_v = 6
+# q = torch.rand([sz_b, len_q, n_ensemble_q, d_model])
+# k = torch.rand([sz_b, len_k, n_ensemble_k, d_model])
+# v = torch.rand([sz_b, len_v, n_ensemble_k, d_model])
+#
+# mask = torch.tensor([[1,0,0,0,0,0],
+#                      [1,0,0,0,0,0],
+#                      [0,1,1,0,0,0],
+#                      [0,0,1,1,0,0],
+#                      [0,0,1,0,0,0],
+#                      [0,1,0,0,1,0],]).bool().unsqueeze(0).repeat(sz_b, 1, 1)
+#
+# output,_ = ensembleMultiHeadAttention(q, k, v, mask)
+# print(output.size())
+# print(output)

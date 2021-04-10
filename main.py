@@ -286,7 +286,7 @@ def generate_graph(gg_model, args):
                     break
                 remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
             new_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] == args.one_input)
-            src_seq[new_finished_idx, i + 1, 1:] = args.dontcare_input
+            src_seq[new_finished_idx, i + 1, 1:] = args.src_pad_idx
             not_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] != args.one_input)
             if num_trials > 1:
                 print('                          ', i, '      num of trials:', num_trials)
