@@ -612,6 +612,45 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
             trg_seq[len_batch, :] = self.args.trg_pad_idx
             trg_seq[len_batch, 0] = self.args.one_input     # termination bit
             src_seq[1:, :] = trg_seq[:-1, :].copy()
+            if self.args.ensemble_input_type == 'negative':
+                ind_0 = src_seq == self.args.zero_input
+                ind_1 = src_seq == self.args.one_input
+                src_seq = np.tile(src_seq.reshape([self.max_seq_len, 1, self.n + 1]), [1, 2, 1] )
+                src_seq[:, 1, :][ind_0] = self.args.one_input
+                src_seq[:, 1, :][ind_1] = self.args.zero_input
+            elif self.args.ensemble_input_type == 'multihop':
+                assert self.args.n_ensemble == len(self.args.ensemble_multihop) + 1
+                src_seq = np.tile(src_seq.reshape([self.max_seq_len, 1, self.n + 1]), [1, self.args.n_ensemble, 1])
+                hops = sorted(self.args.ensemble_multihop)
+                k = 1
+                adj_copy_z = adj_copy.copy()
+                for i in range(len_batch):
+                    adj_copy_z[i,i] = 0
+                p = np.tril(adj_copy_z, -1)
+                for j in range(len(hops)):
+                    h = hops[j]
+                    while k < h:
+                        k += 1
+                        p = np.tril(np.matmul(p, adj_copy_z), 0)
+                    for i in range(len_batch):
+                        src_seq[i+1, j + 1, 0] = self.args.zero_input
+                        tmp = p[i,:i+1].copy()
+                        ind_0 = tmp == 0
+                        #ind_1 = tmp > 0  ### what to do with positive elements?
+                        tmp[ind_0] = self.args.zero_input
+                        src_seq[i+1, j + 1, 1:i+2] = tmp
+            if self.args.avg == True:
+                assert self.args.zero_input == 0 and self.args.one_input == 1 and self.args.dontcare_input == 0
+
+                if len(src_seq.shape) == 2:
+                    ind = src_seq[:,0] == 0
+                    ind[1] = False
+                    src_seq[ind, 1:] = src_seq[ind, 1:] / src_seq[ind, 1:].sum(axis=1, keepdims=True)
+                else:
+                    ind = src_seq[:,0,0] == 0
+                    ind[1] = False
+                    for j in range(src_seq.shape[1]):
+                        src_seq[ind, j, 1:] = src_seq[ind, j, 1:] / src_seq[ind, j, 1:].sum(axis=1, keepdims=True)
 
         else:
             raise NotImplementedError

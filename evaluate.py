@@ -28,7 +28,7 @@ class Args_evaluate():
         # self.dataset_name_all = ['barabasi_noise0','barabasi_noise2','barabasi_noise4','barabasi_noise6','barabasi_noise8','barabasi_noise10']
         # self.dataset_name_all = ['caveman_small', 'ladder_small', 'grid_small', 'ladder_small', 'enzymes_small', 'barabasi_small','citeseer_small']
 
-        self.epoch_start=10
+        self.epoch_start=50
         self.epoch_end=51
         self.epoch_step=5
 
@@ -113,9 +113,9 @@ def clean_graphs(graph_real, graph_pred):
     real_graph_len = np.array([len(graph_real[i]) for i in range(len(graph_real))])
     pred_graph_len = np.array([len(graph_pred[i]) for i in range(len(graph_pred))])
 
-    print(sorted(real_graph_len))
-    print(sorted(pred_graph_len))
-    input()
+    print('\n', sorted(real_graph_len))
+    print('\n', sorted(pred_graph_len))
+    # input()
 
     # select pred samples
     # The number of nodes are sampled from the similar distribution as the training set
@@ -170,7 +170,8 @@ def eval_single_list(graphs, dir_input, dataset_name):
 
 def evaluation_epoch(dir_input, fname_output, model_name, dataset_name, args, is_clean=True, epoch_start=1000,epoch_end=3001,epoch_step=100):
     with open(fname_output, 'w+') as f:
-        f.write('sample_time,epoch,degree_validate,clustering_validate,orbits4_validate,degree_test,clustering_test,orbits4_test\n')
+        # f.write('sample_time,epoch,degree_validate,clustering_validate,orbits4_validate,degree_test,clustering_test,orbits4_test\n')
+        f.write('sample_time,\tepoch,\tdegree_test,\tclustering_test,\torbits4_test\n')
 
         # TODO: Maybe refactor into a separate file/function that specifies THE naming convention
         # across main and evaluate
@@ -246,21 +247,26 @@ def evaluation_epoch(dir_input, fname_output, model_name, dataset_name, args, is
                     except:
                         mmd_4orbits = -1
                     # evaluate MMD validate
-                    mmd_degree_validate = eval.stats.degree_stats(graph_validate, graph_pred)
-                    mmd_clustering_validate = eval.stats.clustering_stats(graph_validate, graph_pred)
-                    try:
-                        mmd_4orbits_validate = eval.stats.orbit_stats_all(graph_validate, graph_pred)
-                    except:
-                        mmd_4orbits_validate = -1
+                    # mmd_degree_validate = eval.stats.degree_stats(graph_validate, graph_pred)
+                    # mmd_clustering_validate = eval.stats.clustering_stats(graph_validate, graph_pred)
+                    # try:
+                    #     mmd_4orbits_validate = eval.stats.orbit_stats_all(graph_validate, graph_pred)
+                    # except:
+                    #     mmd_4orbits_validate = -1
                     # write results
-                    f.write(str(sample_time)+','+
-                            str(epoch)+','+
-                            str(mmd_degree_validate)+','+
-                            str(mmd_clustering_validate)+','+
-                            str(mmd_4orbits_validate)+','+ 
-                            str(mmd_degree)+','+
-                            str(mmd_clustering)+','+
-                            str(mmd_4orbits)+'\n')
+                    # f.write(str(sample_time)+','+
+                    #         str(epoch)+','+
+                    #         str(mmd_degree_validate)+','+
+                    #         str(mmd_clustering_validate)+','+
+                    #         str(mmd_4orbits_validate)+','+
+                    #         str(mmd_degree)+','+
+                    #         str(mmd_clustering)+','+
+                    #         str(mmd_4orbits)+'\n')
+                    f.write(str(sample_time) + ',\t' +
+                            str(epoch) + ',\t' +
+                            str(mmd_degree) + ',\t' +
+                            str(mmd_clustering) + ',\t' +
+                            str(mmd_4orbits) + '\n')
                     print('degree',mmd_degree,'clustering',mmd_clustering,'orbits',mmd_4orbits)
 
         # get internal MMD (MMD between ground truth validation and test sets)

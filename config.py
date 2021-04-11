@@ -52,7 +52,7 @@ class Args():
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32  # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epochs = 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 10 # 10
+        self.epochs_test_start = 50 # 10
         self.epochs_test = 5 # 100
         self.epochs_log = 100
         self.epochs_save = 100
@@ -76,9 +76,15 @@ class Args():
         elif self.input_type == 'preceding_neighbors_vector':
             self.trg_pad_idx = -2
             self.src_pad_idx = -2  # must be equal to self.trg_pad_idx
-            self.zero_input = -1
-            self.one_input = 1
-            self.dontcare_input = 0
+            self.avg = False # True #
+            if self.avg == True:
+                self.zero_input = 0
+                self.one_input = 1
+                self.dontcare_input = 0
+            else:
+                self.zero_input = -1
+                self.one_input = 1
+                self.dontcare_input = 0
         else:
             raise NotImplementedError
 
@@ -92,7 +98,16 @@ class Args():
         self.d_v = 20 # 64
         self.n_layers = 3 # 6
         self.n_head = 1 # 8
-        self.n_ensemble = 1 # 8
+        self.ensemble_input_type = 'multihop' # 'negative' # 'repeat' #
+        if self.ensemble_input_type == 'negative':
+            self.n_ensemble = 2
+        elif self.ensemble_input_type == 'multihop':
+            self.ensemble_multihop = [2]
+            self.n_ensemble = len(self.ensemble_multihop) + 1
+        elif self.ensemble_input_type == 'repeat':
+            self.n_ensemble = 1 # 8
+        else:
+            raise NotImplementedError('ensemble_input_type', self.ensemble_input_type, 'not recognized.')
         self.dropout = 0.1
         self.proj_share_weight = False # True
         self.embs_share_weight = True

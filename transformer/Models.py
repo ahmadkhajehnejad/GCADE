@@ -72,7 +72,7 @@ class Encoder(nn.Module):
         if args.input_type == 'node_based':
             self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
         elif args.input_type == 'preceding_neighbors_vector':
-            self.src_word_emb = nn.Linear(args.max_num_node + 1, d_word_vec, bias=False)  #TODO: test bias=True
+            self.src_word_emb = nn.Linear(n_ensemble * (args.max_num_node + 1), n_ensemble * d_word_vec, bias=False)  #TODO: test bias=True
         else:
             raise NotImplementedError
         # self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
@@ -90,7 +90,11 @@ class Encoder(nn.Module):
         enc_slf_attn_list = []
 
         # -- Forward
-        enc_output = self.src_word_emb(src_seq)
+        if len(src_seq.size()) == 4:
+            enc_output = self.src_word_emb(src_seq.view(src_seq.size(0), src_seq.size(1), -1))
+            enc_output = enc_output.view(src_seq.size(0), src_seq.size(1), src_seq.size(2), -1)
+        else:
+            enc_output = self.src_word_emb(src_seq)
         if self.scale_emb:
             enc_output *= self.d_model ** 0.5
         enc_output = self.dropout(self.position_enc(enc_output))
@@ -117,7 +121,7 @@ class Decoder(nn.Module):
         if args.input_type == 'node_based':
             self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
         elif args.input_type == 'preceding_neighbors_vector':
-            self.trg_word_emb = nn.Linear(args.max_num_node + 1, d_word_vec, bias=False)  #TODO: test bias=True
+            self.trg_word_emb = nn.Linear(n_ensemble * (args.max_num_node + 1), n_ensemble * d_word_vec, bias=False)  #TODO: test bias=True
         else:
             raise NotImplementedError
         # self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
@@ -135,7 +139,11 @@ class Decoder(nn.Module):
         dec_slf_attn_list, dec_enc_attn_list = [], []
 
         # -- Forward
-        dec_output = self.trg_word_emb(trg_seq)
+        if len(trg_seq.size()) == 4:
+            dec_output = self.trg_word_emb(trg_seq.view(trg_seq.size(0), trg_seq.size(1), -1))
+            dec_output = dec_output.view(trg_seq.size(0), trg_seq.size(1), trg_seq.size(2), -1)
+        else:
+            dec_output = self.trg_word_emb(trg_seq)
         if self.scale_emb:
             dec_output *= self.d_model ** 0.5
         dec_output = self.dropout(self.position_enc(dec_output))
@@ -227,15 +235,23 @@ class Transformer(nn.Module):
 
     def forward(self, src_seq, trg_seq):
 
-        ## Modified
-        #src_mask = get_pad_mask(src_seq, self.src_pad_idx)
-        #trg_mask = get_pad_mask(trg_seq, self.args.trg_pad_idx, self.args.input_type) & get_subsequent_mask(trg_seq)
-        src_mask = get_pad_mask(src_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(src_seq)
-        trg_mask = get_pad_mask(trg_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(trg_seq)
+        if len(src_seq.size()) == 4:
+            src_mask = get_pad_mask(src_seq[:, :, 0, :], self.args.src_pad_idx,
+                                    self.args.input_type) & get_subsequent_mask(src_seq[:, :, 0, :])
+        else:
+            src_mask = get_pad_mask(src_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(src_seq)
+
+        if len(trg_seq.size()) == 4:
+            trg_mask = get_pad_mask(trg_seq[:, :, 0, :], self.args.src_pad_idx,
+                                    self.args.input_type) & get_subsequent_mask(trg_seq[:, :, 0, :])
+        else:
+            trg_mask = get_pad_mask(trg_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(trg_seq)
 
         if self.args.input_type == 'preceding_neighbors_vector':
-            src_seq = src_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
-            trg_seq = trg_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
+            if len(src_seq.size()) == 3:
+                src_seq = src_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
+            if len(trg_seq.size()) == 3:
+                trg_seq = trg_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
 
         enc_output, *_ = self.encoder(src_seq, src_mask)
         dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask)
