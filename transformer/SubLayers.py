@@ -63,7 +63,7 @@ __author__ = "Yu-Hsiang Huang"
 class EnsembleMultiHeadAttention(nn.Module):
     '''Ensemble  Multi-Head Attention module '''
 
-    def __init__(self, n_ensemble_q, n_ensemble_k, n_head, d_model, d_k, d_v, dropout=0.1, attn_dropout=0.1):
+    def __init__(self, n_ensemble_q, n_ensemble_k, n_head, d_model, d_k, d_v, k_gr_att=0, dropout=0.1, attn_dropout=0.1):
         super().__init__()
 
         self.n_head = n_head
@@ -73,6 +73,12 @@ class EnsembleMultiHeadAttention(nn.Module):
 
         self.n_ensemble_q = n_ensemble_q
         self.n_ensemble_k = n_ensemble_k
+
+        if k_gr_att > 0:
+            self.gr_att_linear_list = nn.ModuleList([
+                nn.Linear(k_gr_att, 1, bias=False)
+                for _ in range(n_ensemble_q * n_ensemble_k * n_head)
+            ])
 
         self.w_qs_list = nn.ModuleList([
             nn.Linear(d_model, n_head * d_k, bias=False)
@@ -99,7 +105,7 @@ class EnsembleMultiHeadAttention(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v, mask=None, gr_mask=None):
 
         # q is b x lq x n_ens x d
 
@@ -152,6 +158,14 @@ class EnsembleMultiHeadAttention(nn.Module):
 
                 if mask is not None:
                     attn_ = attn_.masked_fill(mask == 0, -1e9)
+                    for h in range(self.n_head):
+
+                        gr_att_linear = self.gr_att_linear_list[i * n_ensemble_k * n_head + j * n_head + h]
+                        gr_mask_agg = gr_att_linear(gr_mask.transpose(1,2).transpose(2,3))   #  sz_b * k_gr_attr * len_k * len_q ---> sz_b * 1 * len_k * len_q
+                        gr_mask_agg = gr_mask_agg.squeeze(-1).unsqueeze(1)
+
+                        # attn_ = attn_ + gr_mask_agg * mask
+                        attn_ = attn_ * gr_mask_agg
 
                 attn[:,:,:,:,j] = attn_
 

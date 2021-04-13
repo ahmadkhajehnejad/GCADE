@@ -574,6 +574,8 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         start_idx = np.random.randint(adj_copy.shape[0])
         x_idx = np.array(bfs_seq(G, start_idx))
         adj_copy = adj_copy[np.ix_(x_idx, x_idx)]
+        adj_copy_z = adj_copy.copy()
+        np.fill_diagonal(adj_copy_z, 0)
 
         if self.input_type == 'node_based':
             trg_seq = np.zeros(self.max_seq_len, dtype=np.long)
@@ -623,9 +625,6 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
                 src_seq = np.tile(src_seq.reshape([self.max_seq_len, 1, self.n + 1]), [1, self.args.n_ensemble, 1])
                 hops = sorted(self.args.ensemble_multihop)
                 k = 1
-                adj_copy_z = adj_copy.copy()
-                for i in range(len_batch):
-                    adj_copy_z[i,i] = 0
                 p = np.tril(adj_copy_z, -1)
                 for j in range(len(hops)):
                     h = hops[j]
@@ -664,7 +663,10 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         # print('##################################################', '\n')
         # input()
 
-        return {'src_seq': src_seq, 'trg_seq': trg_seq}
+        adj_expanded = np.zeros([src_seq.shape[0], src_seq.shape[0]], dtype=np.float32)
+        adj_expanded[1:len_batch+1, 1:len_batch+1] = adj_copy_z
+
+        return {'src_seq': src_seq, 'trg_seq': trg_seq, 'adj': adj_expanded}
 
     def calc_max_prev_node(self, iter=20000,topk=10):
         max_prev_node = []

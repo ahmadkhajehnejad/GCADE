@@ -79,13 +79,13 @@ class Encoder(nn.Module):
         self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, dropout=dropout)
+            EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=args.k_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
         self.d_model = d_model
 
-    def forward(self, src_seq, src_mask, return_attns=False):
+    def forward(self, src_seq, src_mask, gr_mask, return_attns=False):
 
         enc_slf_attn_list = []
 
@@ -101,7 +101,7 @@ class Encoder(nn.Module):
         enc_output = self.layer_norm(enc_output)
 
         for enc_layer in self.layer_stack:
-            enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask)
+            enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask)
             enc_slf_attn_list += [enc_slf_attn] if return_attns else []
 
         if return_attns:
@@ -128,13 +128,13 @@ class Decoder(nn.Module):
         self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
-            DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, dropout=dropout)
+            DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=args.k_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
         self.d_model = d_model
 
-    def forward(self, trg_seq, trg_mask, enc_output, src_mask, return_attns=False):
+    def forward(self, trg_seq, trg_mask, enc_output, src_mask, gr_mask, return_attns=False):
 
         dec_slf_attn_list, dec_enc_attn_list = [], []
 
@@ -151,7 +151,7 @@ class Decoder(nn.Module):
 
         for dec_layer in self.layer_stack:
             dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
-                dec_output, enc_output, slf_attn_mask=trg_mask, dec_enc_attn_mask=src_mask)
+                dec_output, enc_output, slf_attn_mask=trg_mask, dec_enc_attn_mask=src_mask, gr_mask=gr_mask)
             dec_slf_attn_list += [dec_slf_attn] if return_attns else []
             dec_enc_attn_list += [dec_enc_attn] if return_attns else []
 
@@ -233,7 +233,16 @@ class Transformer(nn.Module):
             self.encoder.src_word_emb.weight = self.decoder.trg_word_emb.weight
 
 
-    def forward(self, src_seq, trg_seq):
+    def forward(self, src_seq, trg_seq, adj):
+
+        k_gr_att = self.args.k_graph_attention
+
+        if k_gr_att > 0:
+            gr_mask = torch.zeros(adj.size(0), k_gr_att, adj.size(1), adj.size(2))
+            gr_mask[:, 0, :, :] = torch.triu(adj)
+            for i in range(1, k_gr_att):
+                gr_mask[:, i, :, :] = torch.triu(torch.matmul(adj, gr_mask[:, i-1, :, :]))
+            gr_mask = torch.transpose(gr_mask, 2, 3)
 
         if len(src_seq.size()) == 4:
             src_mask = get_pad_mask(src_seq[:, :, 0, :], self.args.src_pad_idx,
@@ -253,8 +262,8 @@ class Transformer(nn.Module):
             if len(trg_seq.size()) == 3:
                 trg_seq = trg_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
 
-        enc_output, *_ = self.encoder(src_seq, src_mask)
-        dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask)
+        enc_output, *_ = self.encoder(src_seq, src_mask, gr_mask)
+        dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask, gr_mask)
 
         if self.args.input_type == 'preceding_neighbors_vector':
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)

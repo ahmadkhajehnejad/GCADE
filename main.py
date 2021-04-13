@@ -269,7 +269,7 @@ def generate_graph(gg_model, args):
                                   dtype=torch.float32).to(args.device)
         not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
         for i in range(args.max_seq_len - 1):
-            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq)).view(-1, args.max_seq_len, args.max_num_node + 1)
+            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq, )).view(-1, args.max_seq_len, args.max_num_node + 1)
             num_trials = 0
             remainder_idx = not_finished_idx.clone()
             src_seq[remainder_idx, i+1, i+1:] = args.dontcare_input
@@ -334,9 +334,10 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             src_seq = data['src_seq'].to(args.device)
             trg_seq = data['src_seq'].to(args.device)
             gold = data['trg_seq'].contiguous().to(args.device)
+            adj = data['adj'].to(args.device)
 
             optimizer.zero_grad()
-            pred = gg_model(src_seq, trg_seq)
+            pred = gg_model(src_seq, trg_seq, adj)
             loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
@@ -352,8 +353,9 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             src_seq = data['src_seq'].to(args.device)
             trg_seq = data['src_seq'].to(args.device)
             gold = data['trg_seq'].contiguous().to(args.device)
+            adj = data['adj'].to(args.device)
 
-            pred = gg_model(src_seq, trg_seq)
+            pred = gg_model(src_seq, trg_seq, adj)
             loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
 
             val_running_loss += loss.item()

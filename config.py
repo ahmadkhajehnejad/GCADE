@@ -52,8 +52,8 @@ class Args():
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32  # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epochs = 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 50 # 10
-        self.epochs_test = 5 # 100
+        self.epochs_test_start = 20 # 10
+        self.epochs_test = 10 # 100
         self.epochs_log = 100
         self.epochs_save = 100
 
@@ -70,6 +70,7 @@ class Args():
 
         self.input_type = 'preceding_neighbors_vector' # 'node_based'
         self.output_positional_embedding = False # True
+        self.k_graph_attention = 4
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0
@@ -98,7 +99,7 @@ class Args():
         self.d_v = 20 # 64
         self.n_layers = 3 # 6
         self.n_head = 1 # 8
-        self.ensemble_input_type = 'multihop' # 'negative' # 'repeat' #
+        self.ensemble_input_type = 'repeat' # 'multihop' # 'negative' #
         if self.ensemble_input_type == 'negative':
             self.n_ensemble = 2
         elif self.ensemble_input_type == 'multihop':
