@@ -27,7 +27,7 @@ class Args():
         # if self.graph_type == 'barabasi_noise':
         #     self.graph_type = self.graph_type+str(self.noise)
 
-        use_pre_saved_graphs = True # False #
+        self.use_pre_saved_graphs = True # False #
 
         # if none, then auto calculate
         self.max_num_node = None  # max number of nodes in a graph
