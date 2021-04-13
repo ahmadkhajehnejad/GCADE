@@ -27,6 +27,7 @@ class Args():
         # if self.graph_type == 'barabasi_noise':
         #     self.graph_type = self.graph_type+str(self.noise)
 
+        use_pre_saved_graphs = True # False #
 
         # if none, then auto calculate
         self.max_num_node = None  # max number of nodes in a graph
@@ -70,7 +71,7 @@ class Args():
 
         self.input_type = 'preceding_neighbors_vector' # 'node_based'
         self.output_positional_embedding = False # True
-        self.k_graph_attention = 4
+        self.k_graph_attention = 0 # 4
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0

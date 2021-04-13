@@ -14,6 +14,7 @@ import sys
 import utils
 import torch.nn.functional as F
 from utils import save_graph_list
+import pickle
 
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
@@ -28,33 +29,42 @@ np.random.seed(123)
 torch.manual_seed(123)
 
 args = Args()
-graphs = create_graphs.create(args)
 
-# frq = np.zeros((21,))
-# for g in graphs:
-#     frq[len(g.nodes)] += 1
-# print('\n'.join([str(k) + ' : ' + str(v) for k,v in {i:frq[i] for i in range(21) if frq[i] > 0}.items()]))
-# input()
+if args.use_pre_saved_graphs:
 
-# split datasets
-random.shuffle(graphs)
-graphs_len = len(graphs)
-graphs_test = graphs[int(0.8 * graphs_len):]
-graphs_train = graphs[0:int(0.8 * graphs_len)]
-graphs_validate = graphs[0:int(0.2 * graphs_len)]
+    with open(args.graph_save_path + args.fname_test + '0.dat', 'rb') as fin:
+        graphs = pickle.load(fin)
+    graphs_len = len(graphs)
+    graphs_test = graphs[int(0.8 * graphs_len):]
+    graphs_train = graphs[0:int(0.8 * graphs_len)]
+    graphs_validate = graphs[0:int(0.2 * graphs_len)]
 
-# print([(len(list(g.nodes)), len(list(g.edges))) for g in graphs_train])
-# print('---------------------------\n\n')
-# input()
+    # if use pre-saved graphs
+    # dir_input = "/dfs/scratch0/jiaxuany0/graphs/"
+    # fname_test = dir_input + args.note + '_' + args.graph_type + '_' + str(args.num_layers) + '_' + str(
+    #     args.hidden_size_rnn) + '_test_' + str(0) + '.dat'
+    # graphs = load_graph_list(fname_test, is_real=True)
+    # graphs_test = graphs[int(0.8 * graphs_len):]
+    # graphs_train = graphs[0:int(0.8 * graphs_len)]
+    # graphs_validate = graphs[int(0.2 * graphs_len):int(0.4 * graphs_len)]
 
-# if use pre-saved graphs
-# dir_input = "/dfs/scratch0/jiaxuany0/graphs/"
-# fname_test = dir_input + args.note + '_' + args.graph_type + '_' + str(args.num_layers) + '_' + str(
-#     args.hidden_size_rnn) + '_test_' + str(0) + '.dat'
-# graphs = load_graph_list(fname_test, is_real=True)
-# graphs_test = graphs[int(0.8 * graphs_len):]
-# graphs_train = graphs[0:int(0.8 * graphs_len)]
-# graphs_validate = graphs[int(0.2 * graphs_len):int(0.4 * graphs_len)]
+else:
+    graphs = create_graphs.create(args)
+
+
+    # split datasets
+    random.shuffle(graphs)
+    graphs_len = len(graphs)
+    graphs_test = graphs[int(0.8 * graphs_len):]
+    graphs_train = graphs[0:int(0.8 * graphs_len)]
+    graphs_validate = graphs[0:int(0.2 * graphs_len)]
+
+
+    # save ground truth graphs
+    ## To get train and test set, after loading you need to manually slice
+    save_graph_list(graphs, args.graph_save_path + args.fname_train + '0.dat')
+    save_graph_list(graphs, args.graph_save_path + args.fname_test + '0.dat')
+    print('train and test graphs saved at: ', args.graph_save_path + args.fname_test + '0.dat')
 
 graph_validate_len = 0
 for graph in graphs_validate:
@@ -78,11 +88,7 @@ print('max number node: {}'.format(args.max_num_node))
 print('max/min number edge: {}; {}'.format(max_num_edge, min_num_edge))
 print('max previous node: {}'.format(args.max_prev_node))
 
-# save ground truth graphs
-## To get train and test set, after loading you need to manually slice
-save_graph_list(graphs, args.graph_save_path + args.fname_train + '0.dat')
-save_graph_list(graphs, args.graph_save_path + args.fname_test + '0.dat')
-print('train and test graphs saved at: ', args.graph_save_path + args.fname_test + '0.dat')
+
 
 ### comment when normal training, for graph completion only
 # p = 0.5
