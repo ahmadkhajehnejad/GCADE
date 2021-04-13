@@ -267,9 +267,15 @@ def generate_graph(gg_model, args):
     elif args.input_type == 'preceding_neighbors_vector':
         src_seq = args.src_pad_idx * torch.ones((args.test_batch_size, args.max_seq_len, args.max_num_node + 1),
                                   dtype=torch.float32).to(args.device)
+
+        adj = torch.zeros((args.test_batch_size, args.max_seq_len, args.max_seq_len), dtype=torch.float32).to(
+            args.device)
+        # if args.k_graph_attention > 0:
+            # gr_mask = torch.zeros((args.test_batch_size, args.k_graph_attention, args.max_seq_len, args.max_seq_len),
+            #                        dtype=torch.float32).to(args.device)
         not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
         for i in range(args.max_seq_len - 1):
-            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq, )).view(-1, args.max_seq_len, args.max_num_node + 1)
+            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq, adj)).view(-1, args.max_seq_len, args.max_num_node + 1)
             num_trials = 0
             remainder_idx = not_finished_idx.clone()
             src_seq[remainder_idx, i+1, i+1:] = args.dontcare_input
@@ -292,6 +298,19 @@ def generate_graph(gg_model, args):
                 print('                          ', i, '      num of trials:', num_trials)
             if not_finished_idx.sum().item() == 0:
                 break
+
+            tmp = src_seq[not_finished_idx, i + 1, 1:i + 1]
+            ind_0 = tmp == args.zero_input
+            ind_1 = tmp == args.one_input
+            tmp[ind_0] = 0
+            tmp[ind_1] = 1
+            adj[not_finished_idx, i + 1, 1:i + 1] = tmp
+            adj[not_finished_idx, 1:i + 1, i + 1] = tmp
+            # if args.k_graph_attention > 0:
+                # gr_mask[:, 0, :, :] = torch.triu(adj)
+                # for k in range(1, args.k_graph_attention):
+                #     gr_mask[:, k, :, :] = torch.triu(torch.matmul(adj, gr_mask[:, k - 1, :, :]))
+                # gr_mask = gr_mask.transpose(2, 3)
 
         ind_0 = src_seq == args.zero_input
         ind_1 = src_seq == args.one_input
@@ -364,6 +383,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
         print('[epoch %d]     loss: %.3f     val: %.3f              lr: %f' %
               (epoch + 1, running_loss / trsz, val_running_loss / vlsz, optimizer._optimizer.param_groups[0]['lr'])) #get_lr(optimizer)))
+        # print(list(gg_model.encoder.layer_stack[0].slf_attn.gr_att_linear_list[0].parameters()))
         time_end = time.time()
         time_all[epoch - 1] = time_end - time_start
         # test
