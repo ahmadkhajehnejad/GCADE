@@ -243,6 +243,8 @@ class Transformer(nn.Module):
             for i in range(1, k_gr_att):
                 gr_mask[:, i, :, :] = torch.triu(torch.matmul(adj, gr_mask[:, i-1, :, :]))
             gr_mask = torch.transpose(gr_mask, 2, 3)
+        else:
+            gr_mask = None
 
         if len(src_seq.size()) == 4:
             src_mask = get_pad_mask(src_seq[:, :, 0, :], self.args.src_pad_idx,
