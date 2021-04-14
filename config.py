@@ -72,7 +72,7 @@ class Args():
         self.input_type = 'preceding_neighbors_vector' # 'node_based'
         self.output_positional_embedding = False # True
         self.k_graph_attention = 0 # 4
-        self.noramlize_graph_attention = True # False
+        self.normalize_graph_attention = True # False
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0
