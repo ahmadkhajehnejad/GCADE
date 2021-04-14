@@ -30,6 +30,8 @@ torch.manual_seed(123)
 
 args = Args()
 
+graphs = create_graphs.create(args)   ## do not comment this line when use_pre_savede_graphs is True. This line sets args.max_prev_node too.
+
 if args.use_pre_saved_graphs:
 
     with open(args.graph_save_path + args.fname_test + '0.dat', 'rb') as fin:
@@ -49,9 +51,6 @@ if args.use_pre_saved_graphs:
     # graphs_validate = graphs[int(0.2 * graphs_len):int(0.4 * graphs_len)]
 
 else:
-    graphs = create_graphs.create(args)
-
-
     # split datasets
     random.shuffle(graphs)
     graphs_len = len(graphs)
