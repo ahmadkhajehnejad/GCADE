@@ -243,6 +243,11 @@ class Transformer(nn.Module):
             for i in range(1, k_gr_att):
                 gr_mask[:, i, :, :] = torch.triu(torch.matmul(adj, gr_mask[:, i-1, :, :]))
             gr_mask = torch.transpose(gr_mask, 2, 3)
+            if self.args.normalize_graph_attention:
+                sm = gr_mask.sum(-1, keepdim=True)
+                sm = sm.masked_fill(sm == 0, 1)
+                gr_mask = gr_mask / sm
+
         else:
             gr_mask = None
 
