@@ -574,6 +574,9 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         start_idx = np.random.randint(adj_copy.shape[0])
         x_idx = np.array(bfs_seq(G, start_idx))
         adj_copy = adj_copy[np.ix_(x_idx, x_idx)]
+        if adj_copy.shape[0] != len_batch:
+            # print('disconnected graph', len_batch, adj_copy.shape[0])
+            len_batch = adj_copy.shape[0]
         adj_copy_z = adj_copy.copy()
         np.fill_diagonal(adj_copy_z, 0)
 

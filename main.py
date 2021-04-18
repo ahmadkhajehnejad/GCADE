@@ -341,6 +341,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
     # start main loop
     time_all = np.zeros(args.epochs)
+    loss_buffer = []
     for epoch in range(args.epochs):
         time_start = time.time()
         running_loss = 0.0
@@ -352,6 +353,23 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             sys.stdout.flush()
             src_seq = data['src_seq'].to(args.device)
             trg_seq = data['src_seq'].to(args.device)
+
+            '''
+            for j in range(src_seq.size(1)):
+                ind = src_seq[:,j,0] == args.zero_input
+                tmp = args.dontcare_input * torch.ones(ind.sum().item(), src_seq.size(-1)).to(args.device)
+
+                # tmp[:, :] = args.zero_input
+                tmp[:, :j] = args.zero_input
+                tmp[:, j] = args.one_input
+
+                # tmp[:, :] = args.one_input
+                # tmp[:, 0] = args.zero_input
+
+                src_seq[ind, j,  :] = tmp.clone()
+                trg_seq[ind, j,  :] = tmp.clone()
+            '''
+
             gold = data['trg_seq'].contiguous().to(args.device)
             adj = data['adj'].to(args.device)
 
@@ -366,11 +384,13 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             trsz += src_seq.size(0)
 
         val_running_loss = 0.0
+        vlsz = 1
+        '''
         vlsz = 0
         gg_model.eval()
         for i, data in enumerate(dataset_validation, 0):
             src_seq = data['src_seq'].to(args.device)
-            trg_seq = data['src_seq'].to(args.device)
+            trg_seq = data['src_seq'].to(args.device) 
             gold = data['trg_seq'].contiguous().to(args.device)
             adj = data['adj'].to(args.device)
 
@@ -379,10 +399,14 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
+        '''
 
 
-        print('[epoch %d]     loss: %.3f     val: %.3f              lr: %f' %
-              (epoch + 1, running_loss / trsz, val_running_loss / vlsz, optimizer._optimizer.param_groups[0]['lr'])) #get_lr(optimizer)))
+        loss_buffer.append(running_loss / trsz)
+        if len(loss_buffer) > 30:
+            loss_buffer = loss_buffer[1:]
+        print('[epoch %d]     loss: %.3f     val: %.3f              lr: %f     avg_tr_loss: %f' %
+              (epoch + 1, running_loss / trsz, val_running_loss / vlsz, optimizer._optimizer.param_groups[0]['lr'], np.mean(loss_buffer))) #get_lr(optimizer)))
         # print(list(gg_model.encoder.layer_stack[0].slf_attn.gr_att_linear_list[0].parameters()))
         time_end = time.time()
         time_all[epoch - 1] = time_end - time_start

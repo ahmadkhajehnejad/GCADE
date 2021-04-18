@@ -165,9 +165,15 @@ class EnsembleMultiHeadAttention(nn.Module):
                             attn_[:,h,:,:] = attn_[:,h,:,:] + gr_mask_agg
                             # attn_[:,h,:,:] = attn_[:,h,:,:] * gr_mask_agg
                             # attn_[:,h,:,:] = gr_mask_agg
+                            # attn_[:,h,:,:] = 1
                     attn_ = attn_.masked_fill(mask == 0, -1e9)
-
                 attn[:,:,:,:,j] = attn_
+
+            '''
+            attn = F.sigmoid(attn)
+            attn = attn.view(sz_b, n_head, len_q, len_k * n_ensemble_k)
+            attn = self.attn_dropout(attn)
+            '''
 
             attn = attn.view(sz_b, n_head, len_q, len_k * n_ensemble_k)
             attn = self.attn_dropout(F.softmax(attn, dim=-1))

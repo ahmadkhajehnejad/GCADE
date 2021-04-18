@@ -5,7 +5,7 @@ class Args():
     def __init__(self):
 
         ### Which dataset is used to train the model
-        # self.graph_type = 'DD'    ### protein
+        self.graph_type = 'DD'    ### protein
         # self.graph_type = 'caveman'  ### Community ??
         # self.graph_type = 'caveman_small'
         # self.graph_type = 'caveman_small_single'
@@ -19,7 +19,7 @@ class Args():
         # self.graph_type = 'barabasi'
         # self.graph_type = 'barabasi_small'
         # self.graph_type = 'citeseer'             ### Ego
-        self.graph_type = 'citeseer_small'       ### Ego-small
+        # self.graph_type = 'citeseer_small'       ### Ego-small
 
         # self.graph_type = 'barabasi_noise'
         # self.noise = 10
@@ -27,7 +27,7 @@ class Args():
         # if self.graph_type == 'barabasi_noise':
         #     self.graph_type = self.graph_type+str(self.noise)
 
-        self.use_pre_saved_graphs = True # False #
+        self.use_pre_saved_graphs = False # True #    
 
         # if none, then auto calculate
         self.max_num_node = None  # max number of nodes in a graph
@@ -45,15 +45,15 @@ class Args():
         self.nll_save_path = self.dir_input + 'nll/'
 
 
-        self.batch_size = 32  # normal: 32, and the rest should be changed accordingly
-        self.test_batch_size = 32
-        self.test_total_size = 100 # 1000
+        self.batch_size = 32 # 32  # normal: 32, and the rest should be changed accordingly
+        self.test_batch_size = 32 # 32
+        self.test_total_size = 1000 # 1000
 
         ### training config
         self.num_workers = 4  # num workers to load data, default 4
-        self.batch_ratio = 32  # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
-        self.epochs = 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 20 # 10
+        self.batch_ratio = 32 * (32 // self.batch_size) # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
+        self.epochs = 300 # 3000  # now one epoch means self.batch_ratio x batch_size
+        self.epochs_test_start = 200 # 100
         self.epochs_test = 10 # 100
         self.epochs_log = 100
         self.epochs_save = 100
