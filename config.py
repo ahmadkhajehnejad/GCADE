@@ -101,12 +101,15 @@ class Args():
         self.d_v = 20 # 64
         self.n_layers = 3 # 6
         self.n_head = 1 # 8
-        self.ensemble_input_type = 'repeat' # 'multihop' # 'negative' #
+        self.ensemble_input_type = 'repeat' # 'multihop-single' # 'multihop' # 'negative' #
         if self.ensemble_input_type == 'negative':
             self.n_ensemble = 2
         elif self.ensemble_input_type == 'multihop':
             self.ensemble_multihop = [2]
             self.n_ensemble = len(self.ensemble_multihop) + 1
+        elif self.ensemble_input_type == 'multihop-single':
+            self.ensemble_multihop = [1,2,3,4]
+            self.n_ensemble = 1
         elif self.ensemble_input_type == 'repeat':
             self.n_ensemble = 1 # 8
         else:

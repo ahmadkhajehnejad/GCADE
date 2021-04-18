@@ -72,7 +72,12 @@ class Encoder(nn.Module):
         if args.input_type == 'node_based':
             self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
         elif args.input_type == 'preceding_neighbors_vector':
-            self.src_word_emb = nn.Linear(n_ensemble * (args.max_num_node + 1), n_ensemble * d_word_vec, bias=False)  #TODO: test bias=True
+            if args.ensemble_input_type == 'multihop-single':
+                self.src_word_emb = nn.Linear((1 + len(args.ensemble_multihop)) * (args.max_num_node + 1), d_word_vec,
+                                              bias=False)
+            else:
+                self.src_word_emb = nn.Linear(n_ensemble * (args.max_num_node + 1), n_ensemble * d_word_vec,
+                                              bias=False)  # TODO: test bias=True
         else:
             raise NotImplementedError
         # self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
@@ -121,7 +126,12 @@ class Decoder(nn.Module):
         if args.input_type == 'node_based':
             self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
         elif args.input_type == 'preceding_neighbors_vector':
-            self.trg_word_emb = nn.Linear(n_ensemble * (args.max_num_node + 1), n_ensemble * d_word_vec, bias=False)  #TODO: test bias=True
+            if args.ensemble_input_type == 'multihop-single':
+                self.trg_word_emb = nn.Linear((1 + len(args.ensemble_multihop)) * (args.max_num_node + 1), d_word_vec,
+                                              bias=False)
+            else:
+                self.trg_word_emb = nn.Linear(n_ensemble * (args.max_num_node + 1), n_ensemble * d_word_vec,
+                                              bias=False)  # TODO: test bias=True
         else:
             raise NotImplementedError
         # self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
