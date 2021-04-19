@@ -226,7 +226,7 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
 
             cond_1 = gold != args.trg_pad_idx
             if args.use_max_prev_node:
-                cond_mpn = torch.ones(gold.size(0), gold.size(1), gold.size(2))
+                cond_mpn = torch.ones(gold.size(0), gold.size(1), gold.size(2)).to(device=args.device)
                 cond_mpn = torch.tril(cond_mpn, diagonal=0)
                 cond_mpn = torch.triu(cond_mpn, diagonal=-args.max_prev_node+1)
                 cond_mpn[:, :, 0] = 1

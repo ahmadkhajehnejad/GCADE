@@ -5,12 +5,12 @@ class Args():
     def __init__(self):
 
         ### Which dataset is used to train the model
-        self.graph_type = 'DD'    ### protein
+        # self.graph_type = 'DD'    ### protein
         # self.graph_type = 'caveman'  ### Community ??
         # self.graph_type = 'caveman_small'
         # self.graph_type = 'caveman_small_single'
         # self.graph_type = 'community4'
-        # self.graph_type = 'grid'
+        self.graph_type = 'grid'
         # self.graph_type = 'grid_small'
         # self.graph_type = 'ladder_small'
 
@@ -27,7 +27,7 @@ class Args():
         # if self.graph_type == 'barabasi_noise':
         #     self.graph_type = self.graph_type+str(self.noise)
 
-        self.use_pre_saved_graphs = False # True #    
+        self.use_pre_saved_graphs = True # False #     
 
         # if none, then auto calculate
         self.max_num_node = None  # max number of nodes in a graph
