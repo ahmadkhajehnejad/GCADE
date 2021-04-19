@@ -121,11 +121,9 @@ val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.ba
 
 
 if args.input_type == 'node_based':
-    args.max_prev_node = dataset.max_prev_node
     args.max_seq_len = dataset.max_seq_len
     args.vocab_size = args.max_num_node + 3  # 0 for padding, self.n+1 for add_node, self.n+2 for termination
 elif args.input_type == 'preceding_neighbors_vector':
-    args.max_prev_node = dataset.max_prev_node
     args.max_seq_len = dataset.max_seq_len
     args.vocab_size = None
 else:
@@ -227,6 +225,12 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             # gold[ind_3] = -1
 
             cond_1 = gold != args.trg_pad_idx
+            if args.use_max_prev_node:
+                cond_mpn = torch.ones(gold.size(0), gold.size(1), gold.size(2))
+                cond_mpn = torch.tril(cond_mpn, diagonal=0)
+                cond_mpn = torch.triu(cond_mpn, diagonal=-args.max_prev_node+1)
+                cond_mpn[:, :, 0] = 1
+                cond_1 = cond_1 * cond_mpn
             pred_1 = torch.tril(pred * cond_1, diagonal=0)
             gold_1 = torch.tril(gold * cond_1, diagonal=0)
             ind_0 = gold_1 == args.zero_input
@@ -239,6 +243,8 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             cond_0 = gold[:,:,0] != args.trg_pad_idx
             cond_0[:, 0] = False
             cond_2 = cond_0.unsqueeze(-1).repeat(1, 1, gold.size(-1))
+            if args.use_max_prev_node:
+                cond_2 = cond_2 * cond_mpn
             pred_2 = torch.tril(pred * cond_2, diagonal=0)
             gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
 
@@ -283,6 +289,8 @@ def generate_graph(gg_model, args):
         not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
         for i in range(args.max_seq_len - 1):
             pred_probs = torch.sigmoid(gg_model(src_seq, src_seq, adj)).view(-1, args.max_seq_len, args.max_num_node + 1)
+            if args.use_max_prev_node and i > args.max_prev_node:
+                pred_probs[:, i, 1:i - args.max_prev_node + 1] = 0
             num_trials = 0
             remainder_idx = not_finished_idx.clone()
             src_seq[remainder_idx, i+1, i+1:] = args.dontcare_input

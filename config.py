@@ -69,6 +69,11 @@ class Args():
 
         self.note = 'Gransformer'
 
+        self.node_ordering = 'bfs'
+        self.use_max_prev_node = True
+        if self.use_max_prev_node:
+            assert self.node_ordering in ['bfs']
+
         self.input_type = 'preceding_neighbors_vector' # 'node_based'
         self.output_positional_embedding = False # True
         self.k_graph_attention = 0 # 4
