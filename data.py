@@ -614,6 +614,8 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
                 trg_seq[i,1:adj_copy.shape[1] + 1] = tmp
                 trg_seq[i, 0] = self.args.zero_input     # termination bit
                 trg_seq[i, i+1:] = self.args.dontcare_input
+                if self.args.use_max_prev_node and i > self.args.max_prev_node:
+                    trg_seq[i, 1:i - self.args.max_prev_node + 1] = self.args.dontcare_input
             trg_seq[len_batch, :] = self.args.trg_pad_idx
             trg_seq[len_batch, 0] = self.args.one_input     # termination bit
             src_seq[1:, :] = trg_seq[:-1, :].copy()
