@@ -248,10 +248,14 @@ class Transformer(nn.Module):
         k_gr_att = self.args.k_graph_attention
 
         if k_gr_att > 0:
-            gr_mask = torch.zeros(adj.size(0), k_gr_att, adj.size(1), adj.size(2)).to(self.args.device)
+            gr_mask = torch.zeros(adj.size(0), 2 * k_gr_att - 1, adj.size(1), adj.size(2)).to(self.args.device)
             gr_mask[:, 0, :, :] = torch.triu(adj)
             for i in range(1, k_gr_att):
-                gr_mask[:, i, :, :] = torch.triu(torch.matmul(adj, gr_mask[:, i-1, :, :]))
+                j = max(2 * i - 3, 0)
+                gr_mask[:, 2 * i - 1, :, :] = torch.triu(torch.matmul(adj, gr_mask[:, j, :, :]))
+                gr_mask[:, 2 * i, :, :] = torch.tril(
+                    torch.matmul(gr_mask[:, 2 * i - 2, :, :].transpose(1, 2), adj)).transpose(1, 2)
+
             gr_mask = torch.transpose(gr_mask, 2, 3)
             if self.args.normalize_graph_attention:
                 sm = gr_mask.sum(-1, keepdim=True)
