@@ -207,11 +207,12 @@ class Transformer(nn.Module):
             n_layers=n_layers, n_ensemble=n_ensemble, n_head=n_head, d_k=d_k, d_v=d_v,
             pad_idx=src_pad_idx, args=args, dropout=dropout, scale_emb=scale_emb)
 
-        self.decoder = Decoder(
-            n_trg_vocab=n_trg_vocab, n_position=n_position,
-            d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
-            n_layers=n_layers, n_ensemble=n_ensemble, n_head=n_head, d_k=d_k, d_v=d_v,
-            pad_idx=trg_pad_idx, args=args, dropout=dropout, scale_emb=scale_emb)
+        if not args.only_encoder:
+            self.decoder = Decoder(
+                n_trg_vocab=n_trg_vocab, n_position=n_position,
+                d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
+                n_layers=n_layers, n_ensemble=n_ensemble, n_head=n_head, d_k=d_k, d_v=d_v,
+                pad_idx=trg_pad_idx, args=args, dropout=dropout, scale_emb=scale_emb)
 
         if args.input_type == 'node_based':
             self.trg_word_prj = nn.Linear(d_model, n_trg_vocab, bias=False)
@@ -239,7 +240,7 @@ class Transformer(nn.Module):
             else:
                 raise NotImplementedError  #TODO: implement it for 'preceding_neighbors_vector' input type
 
-        if emb_src_trg_weight_sharing:
+        if (not args.only_encoder) and emb_src_trg_weight_sharing:
             self.encoder.src_word_emb.weight = self.decoder.trg_word_emb.weight
 
 
@@ -281,7 +282,10 @@ class Transformer(nn.Module):
                 trg_seq = trg_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
 
         enc_output, *_ = self.encoder(src_seq, src_mask, gr_mask)
-        dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask, gr_mask)
+        if self.args.only_encoder:
+            dec_output = enc_output
+        else:
+            dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask, gr_mask)
 
         if self.args.input_type == 'preceding_neighbors_vector':
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
