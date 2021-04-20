@@ -157,6 +157,28 @@ def Graph_load(dataset = 'cora'):
 
 
 
+def blanket_seq(G, start_id):
+    '''
+    get a blanket node sequence
+    :param G:
+    :param start_id:
+    :return:
+    '''
+    visited = set()
+    blanket = set([start_id])
+    output = []
+
+    while len(blanket) > 0:
+        next = np.random.choice(list(blanket))
+        output.append(next)
+        blanket.remove(next)
+        visited.update([next])
+        blanket.update( set(G[next].keys()) - visited)
+
+    return output
+
+
+
 def bfs_seq(G, start_id):
     '''
     get a bfs node sequence
@@ -572,7 +594,12 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         G = nx.from_numpy_matrix(adj_copy_matrix)
         # then do bfs in the permuted G
         start_idx = np.random.randint(adj_copy.shape[0])
-        x_idx = np.array(bfs_seq(G, start_idx))
+        if self.args.node_ordering == 'bfs':
+            x_idx = np.array(bfs_seq(G, start_idx))
+        elif self.args.node_ordering == 'blanket':
+            x_idx = np.array(blanket_seq(G, start_idx))
+        else:
+            raise NotImplementedError
         adj_copy = adj_copy[np.ix_(x_idx, x_idx)]
         if adj_copy.shape[0] != len_batch:
             # print('disconnected graph', len_batch, adj_copy.shape[0])
