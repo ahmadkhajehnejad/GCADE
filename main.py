@@ -303,6 +303,8 @@ def generate_graph(gg_model, args):
                 tmp[ind_0] = args.zero_input
                 tmp[ind_1] = args.one_input
                 src_seq[remainder_idx, i + 1, :i + 1] = tmp
+                if args.use_max_prev_node and i > args.max_prev_node:
+                    src_seq[remainder_idx, i+1, 1:i - args.max_prev_node + 1] = args.dontcare_input
                 if i == 0:
                     break
                 remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
