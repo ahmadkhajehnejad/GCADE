@@ -11,7 +11,7 @@ __author__ = "Yu-Hsiang Huang"
 def get_pad_mask(seq, pad_idx, input_type):
     if input_type == 'node_based':
         return (seq != pad_idx).unsqueeze(-2)
-    elif input_type == 'preceding_neighbors_vector':
+    elif input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
         return ((seq == pad_idx).sum(-1) == 0).unsqueeze(-2)
     else:
         raise NotImplementedError
@@ -54,10 +54,12 @@ class PositionalEncoding(nn.Module):
         return torch.FloatTensor(sinusoid_table).unsqueeze(0)
 
     def forward(self, x):
-        if self.input_type == 'preceding_neighbors_vector':
+        if self.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             return x + self.pos_table[:, :x.size(1)].unsqueeze(-2).clone().detach()
-        else:
+        elif self.input_type == 'node_based':
             return x + self.pos_table[:, :x.size(1)].clone().detach()
+        else:
+            raise NotImplementedError
 
 
 class Encoder(nn.Module):
@@ -71,13 +73,27 @@ class Encoder(nn.Module):
 
         if args.input_type == 'node_based':
             self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
-        elif args.input_type == 'preceding_neighbors_vector':
-            if args.ensemble_input_type == 'multihop-single':
-                self.src_word_emb = nn.Linear((1 + len(args.ensemble_multihop)) * (args.max_num_node + 1), d_word_vec,
-                                              bias=False)
+        elif args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
+            if args.input_type == 'preceding_neighbors_vector':
+                if args.ensemble_input_type == 'multihop-single':
+                    sz_input_vec = (1 + len(args.ensemble_multihop)) * (args.max_num_node + 1)
+                    sz_emb = d_word_vec
+                else:
+                    sz_input_vec = n_ensemble * (args.max_num_node + 1)
+                    sz_emb = n_ensemble * d_word_vec
             else:
-                self.src_word_emb = nn.Linear(n_ensemble * (args.max_num_node + 1), n_ensemble * d_word_vec,
-                                              bias=False)  # TODO: test bias=True
+                if args.ensemble_input_type == 'multihop-single':
+                    sz_input_vec = args.max_prev_node + 1 + len(args.ensemble_multihop) * (args.max_num_node)
+                    sz_emb = d_word_vec
+                else:
+                    sz_input_vec = n_ensemble * (args.max_prev_node + 1)
+                    sz_emb = n_ensemble * d_word_vec
+            # self.src_word_emb = nn.Linear(sz_input_vec, sz_emb, bias=False)
+            sz_intermed = max(sz_input_vec, sz_emb)
+            self.src_word_emb_1 = nn.Linear(sz_input_vec, sz_intermed, bias=True)
+            self.src_word_emb_2 = nn.Linear(sz_intermed, sz_intermed, bias=True)
+            self.src_word_emb_3 = nn.Linear(sz_intermed, sz_emb, bias=True)
+
         else:
             raise NotImplementedError
         # self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
@@ -96,10 +112,16 @@ class Encoder(nn.Module):
 
         # -- Forward
         if len(src_seq.size()) == 4:
-            enc_output = self.src_word_emb(src_seq.view(src_seq.size(0), src_seq.size(1), -1))
-            enc_output = enc_output.view(src_seq.size(0), src_seq.size(1), src_seq.size(2), -1)
+            src_seq_tmp = src_seq.view(src_seq.size(0), src_seq.size(1), -1)
         else:
-            enc_output = self.src_word_emb(src_seq)
+            src_seq_tmp = src_seq
+        # enc_output = self.src_word_emb(src_tmp)
+        enc_output = self.src_word_emb_1(src_seq_tmp)
+        enc_output = self.src_word_emb_2(nn.functional.relu(enc_output))
+        enc_output = self.src_word_emb_3(nn.functional.relu(enc_output))
+        if len(src_seq.size()) == 4:
+            enc_output = enc_output.view(src_seq.size(0), src_seq.size(1), src_seq.size(2), -1)
+
         if self.scale_emb:
             enc_output *= self.d_model ** 0.5
         enc_output = self.dropout(self.position_enc(enc_output))
@@ -125,13 +147,26 @@ class Decoder(nn.Module):
 
         if args.input_type == 'node_based':
             self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
-        elif args.input_type == 'preceding_neighbors_vector':
-            if args.ensemble_input_type == 'multihop-single':
-                self.trg_word_emb = nn.Linear((1 + len(args.ensemble_multihop)) * (args.max_num_node + 1), d_word_vec,
-                                              bias=False)
+        elif args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
+            if args.input_type == 'preceding_neighbors_vector':
+                if args.ensemble_input_type == 'multihop-single':
+                    sz_input_vec = (1 + len(args.ensemble_multihop)) * (args.max_num_node + 1)
+                    sz_emb = d_word_vec
+                else:
+                    sz_input_vec = n_ensemble * (args.max_num_node + 1)
+                    sz_emb = n_ensemble * d_word_vec
             else:
-                self.trg_word_emb = nn.Linear(n_ensemble * (args.max_num_node + 1), n_ensemble * d_word_vec,
-                                              bias=False)  # TODO: test bias=True
+                if args.ensemble_input_type == 'multihop-single':
+                    sz_input_vec = args.max_prev_node + 1 + len(args.ensemble_multihop) * (args.max_num_node)
+                    sz_emb = d_word_vec
+                else:
+                    sz_input_vec = n_ensemble * (args.max_prev_node + 1)
+                    sz_emb = n_ensemble * d_word_vec
+            # self.trg_word_emb = nn.Linear(sz_input_vec, sz_emb, bias=False)
+            sz_intermed = max(sz_input_vec, sz_emb)
+            self.trg_word_emb_1 = nn.Linear(sz_input_vec, sz_intermed, bias=True)
+            self.trg_word_emb_2 = nn.Linear(sz_intermed, sz_intermed, bias=True)
+            self.trg_word_emb_3 = nn.Linear(sz_intermed, sz_emb, bias=True)
         else:
             raise NotImplementedError
         # self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
@@ -150,10 +185,16 @@ class Decoder(nn.Module):
 
         # -- Forward
         if len(trg_seq.size()) == 4:
-            dec_output = self.trg_word_emb(trg_seq.view(trg_seq.size(0), trg_seq.size(1), -1))
-            dec_output = dec_output.view(trg_seq.size(0), trg_seq.size(1), trg_seq.size(2), -1)
+            trg_seq_tmp = trg_seq.view(trg_seq.size(0), trg_seq.size(1), -1)
         else:
-            dec_output = self.trg_word_emb(trg_seq)
+            trg_seq_tmp = trg_seq
+        # dec_output = self.trg_word_emb(trg_tmp)
+        dec_output = self.trg_word_emb_1(trg_seq_tmp)
+        dec_output = self.trg_word_emb_2(nn.functional.relu(dec_output))
+        dec_output = self.trg_word_emb_3(nn.functional.relu(dec_output))
+        if len(trg_seq.size()) == 4:
+            dec_output = dec_output.view(trg_seq.size(0), trg_seq.size(1), trg_seq.size(2), -1)
+
         if self.scale_emb:
             dec_output *= self.d_model ** 0.5
         dec_output = self.dropout(self.position_enc(dec_output))
@@ -216,12 +257,23 @@ class Transformer(nn.Module):
 
         if args.input_type == 'node_based':
             self.trg_word_prj = nn.Linear(d_model, n_trg_vocab, bias=False)
-        elif args.input_type == 'preceding_neighbors_vector':
-            if args.output_positional_embedding:
-                self.trg_word_prj = nn.Linear(d_model * n_ensemble + args.max_seq_len, args.max_num_node + 1,
-                                              bias=False)  # TODO: test bias=True
+        elif args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
+
+            if args.input_type == 'preceding_neighbors_vector':
+                sz_out = args.max_num_node + 1
             else:
-                self.trg_word_prj = nn.Linear(d_model * n_ensemble, args.max_num_node + 1, bias=False)  #TODO: test bias=True
+                sz_out = args.max_prev_node + 1
+
+            sz_in = d_model * n_ensemble
+            if args.output_positional_embedding:
+                sz_in = sz_in + args.max_seq_len
+
+            sz_intermed = max(sz_in, sz_out)
+
+            # self.trg_word_prj = nn.Linear(sz_in, sz_out, bias=False)
+            self.trg_word_prj_1 = nn.Linear(sz_in, sz_intermed, bias=True)
+            self.trg_word_prj_2 = nn.Linear(sz_intermed, sz_intermed, bias=True)
+            self.trg_word_prj_3 = nn.Linear(sz_intermed, sz_out, bias=True)
         else:
             raise NotImplementedError
 
@@ -275,7 +327,7 @@ class Transformer(nn.Module):
         else:
             trg_mask = get_pad_mask(trg_seq, self.args.src_pad_idx, self.args.input_type) & get_subsequent_mask(trg_seq)
 
-        if self.args.input_type == 'preceding_neighbors_vector':
+        if self.args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             if len(src_seq.size()) == 3:
                 src_seq = src_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
             if len(trg_seq.size()) == 3:
@@ -287,12 +339,16 @@ class Transformer(nn.Module):
         else:
             dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask, gr_mask)
 
-        if self.args.input_type == 'preceding_neighbors_vector':
+        if self.args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
             if self.args.output_positional_embedding:
                 dec_output = torch.cat([dec_output, outputPositionalEncoding(dec_output)], dim=2)
 
-        seq_logit = self.trg_word_prj(dec_output)
+        # seq_logit = self.trg_word_prj(dec_output)
+        seq_logit = self.trg_word_prj_1(dec_output)
+        seq_logit = self.trg_word_prj_2(nn.functional.relu(seq_logit))
+        seq_logit = self.trg_word_prj_3(nn.functional.relu(seq_logit))
+
         if self.scale_prj:
             seq_logit *= self.d_model ** -0.5
 

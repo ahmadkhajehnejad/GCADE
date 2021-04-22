@@ -74,23 +74,24 @@ class Args():
         if self.use_max_prev_node:
             assert self.node_ordering in ['bfs']
 
-        self.input_type = 'preceding_neighbors_vector' # 'node_based'
-        self.only_encoder = True # False
+        self.input_type = 'max_prev_node_neighbors_vec' # 'preceding_neighbors_vector' # 'node_based'
+        self.only_encoder = True # False     ### ignored when using an input_type other than preceding_neighbors_vector'
         self.output_positional_embedding = False # True
         self.k_graph_attention = 0 # 4
         self.normalize_graph_attention = True # False
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0
-        elif self.input_type == 'preceding_neighbors_vector':
+        elif self.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             self.trg_pad_idx = -2
             self.src_pad_idx = -2  # must be equal to self.trg_pad_idx
-            self.avg = False # True #
-            if self.avg == True:
-                self.zero_input = 0
-                self.one_input = 1
-                self.dontcare_input = 0
-            else:
+            # self.avg = False # True #
+            # if self.avg == True:
+            #     self.zero_input = 0
+            #     self.one_input = 1
+            #     self.dontcare_input = 0
+            # else:
+            if True:
                 self.zero_input = -1
                 self.one_input = 1
                 self.dontcare_input = 0
@@ -107,7 +108,7 @@ class Args():
         self.d_v = 20 # 64
         self.n_layers = 3 # 6
         self.n_head = 1 # 8
-        self.ensemble_input_type = 'repeat' # 'multihop-single' # 'multihop' # 'negative' #
+        self.ensemble_input_type = 'repeat' # 'multihop-single' # 'negative' # 'multihop' #
         if self.ensemble_input_type == 'negative':
             self.n_ensemble = 2
         elif self.ensemble_input_type == 'multihop':

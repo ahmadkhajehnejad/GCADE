@@ -571,7 +571,7 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         if self.input_type == 'node_based':
             self.max_seq_len = self.n + self.e + 2 # self.n add_node charachters, self.e node_idx charachters,
                                                    # 1 termination charachter and 1 for positional shift of the source sequence
-        elif self.input_type == 'preceding_neighbors_vector':
+        elif self.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec' ]:
             self.max_seq_len = self.n + 1 # 1 for positional shift of the source sequence
         else:
             raise NotImplementedError
@@ -652,6 +652,7 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
                 src_seq = np.tile(src_seq.reshape([self.max_seq_len, 1, self.n + 1]), [1, 2, 1] )
                 src_seq[:, 1, :][ind_0] = self.args.one_input
                 src_seq[:, 1, :][ind_1] = self.args.zero_input
+                src_seq[:, 1, 0] = src_seq[:, 0, 0]
             elif self.args.ensemble_input_type in ['multihop', 'multihop-single']:
                 if self.args.ensemble_input_type == 'multihop':
                     assert self.args.n_ensemble == len(self.args.ensemble_multihop) + 1
@@ -673,20 +674,82 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
                         #ind_1 = tmp > 0  ### what to do with positive elements?
                         tmp[ind_0] = self.args.zero_input
                         src_seq[i+1, j + 1, 1:i+2] = tmp
-            if self.args.avg == True:
-                assert self.args.zero_input == 0 and self.args.one_input == 1 and self.args.dontcare_input == 0
-                if len(src_seq.shape) == 2:
-                    ind = src_seq[:,0] == 0
-                    ind[1] = False
-                    src_seq[ind, 1:] = src_seq[ind, 1:] / src_seq[ind, 1:].sum(axis=1, keepdims=True)
-                else:
-                    ind = src_seq[:,0,0] == 0
-                    ind[1] = False
-                    for j in range(src_seq.shape[1]):
-                        src_seq[ind, j, 1:] = src_seq[ind, j, 1:] / src_seq[ind, j, 1:].sum(axis=1, keepdims=True)
+            # if self.args.avg == True:
+            #     assert self.args.zero_input == 0 and self.args.one_input == 1 and self.args.dontcare_input == 0
+            #     if len(src_seq.shape) == 2:
+            #         ind = src_seq[:,0] == 0  ###-> zero_input instead of 0  ???
+            #         ind[1] = False
+            #         src_seq[ind, 1:] = src_seq[ind, 1:] / src_seq[ind, 1:].sum(axis=1, keepdims=True)
+            #     else:
+            #         ind = src_seq[:,0,0] == 0  ###-> zero_input instead of 0  ???
+            #         ind[1] = False
+            #         for j in range(src_seq.shape[1]):
+            #             src_seq[ind, j, 1:] = src_seq[ind, j, 1:] / src_seq[ind, j, 1:].sum(axis=1, keepdims=True)
 
             if self.args.ensemble_input_type == 'multihop-single':
                 src_seq = src_seq.reshape([self.max_seq_len, -1])
+        elif self.input_type == 'max_prev_node_neighbors_vec':
+            trg_seq = self.args.trg_pad_idx * np.ones([self.max_seq_len, self.args.max_prev_node + 1], dtype=np.float32)
+            src_seq = self.args.src_pad_idx * np.ones([self.max_seq_len, self.args.max_prev_node + 1], dtype=np.float32)
+            assert self.args.src_pad_idx == self.args.trg_pad_idx
+            for i in range(len_batch):
+                tmp_1 = adj_copy[i, max(0, i-self.args.max_prev_node) : i].copy()
+                ind_0 = tmp_1 == 0
+                ind_1 = tmp_1 == 1
+                tmp_1[ind_0] = self.args.zero_input
+                tmp_1[ind_1] = self.args.one_input
+
+                tmp = self.args.dontcare_input * np.ones([self.args.max_prev_node])
+                if tmp_1.size > 0:
+                    tmp[-tmp_1.size:] = tmp_1
+
+                trg_seq[i,1:] = tmp
+                trg_seq[i, 0] = self.args.zero_input     # termination bit
+            trg_seq[len_batch, :] = self.args.trg_pad_idx
+            trg_seq[len_batch, 0] = self.args.one_input     # termination bit
+            src_seq[1:, :] = trg_seq[:-1, :].copy()
+
+            if self.args.ensemble_input_type == 'negative':
+                ind_0 = src_seq == self.args.zero_input
+                ind_1 = src_seq == self.args.one_input
+                src_seq = np.tile(src_seq.reshape([self.max_seq_len, 1, self.args.max_prev_node + 1]), [1, 2, 1] )
+                src_seq[:, 1, :][ind_0] = self.args.one_input
+                src_seq[:, 1, :][ind_1] = self.args.zero_input
+                src_seq[:, 1, 0] = src_seq[:, 0, 0]
+            elif self.args.ensemble_input_type == 'multihop-single':
+                assert self.args.n_ensemble == 1
+                extra_src_seq = self.args.src_pad_idx * \
+                                np.ones([self.max_seq_len, len(self.args.ensemble_multihop), self.n], dtype=np.float32)
+                hops = sorted(self.args.ensemble_multihop)
+                k = 1
+                p = np.tril(adj_copy_z, -1)
+                for j in range(len(hops)):
+                    h = hops[j]
+                    while k < h:
+                        k += 1
+                        p = np.tril(np.matmul(p, adj_copy_z), 0)
+                    for i in range(len_batch):
+                        tmp = p[i,:i+1].copy()
+                        ind_0 = tmp == 0
+                        #ind_1 = tmp > 0  ### what to do with positive elements?
+                        tmp[ind_0] = self.args.zero_input
+                        extra_src_seq[i+1, j, :i+1] = tmp
+                        extra_src_seq[i+1, j, i+1:] = self.args.dontcare_input
+                src_seq = np.concatenate([src_seq, extra_src_seq.reshape([self.max_seq_len, -1])], axis=1)
+
+            # if self.args.avg == True:
+            #     assert self.args.zero_input == 0 and self.args.one_input == 1 and self.args.dontcare_input == 0
+            #     if len(src_seq.shape) == 2:
+            #         ind = src_seq[:,0] == 0
+            #         ind[1] = False
+            #         src_seq[ind, 1:] = src_seq[ind, 1:] / src_seq[ind, 1:].sum(axis=1, keepdims=True)
+            #         if self.args.ensemble_input_type == 'multihop-single':
+            #             for j in range()
+            #     else:
+            #         ind = src_seq[:,0,0] == 0
+            #         ind[1] = False
+            #         for j in range(src_seq.shape[1]):
+            #             src_seq[ind, j, 1:] = src_seq[ind, j, 1:] / src_seq[ind, j, 1:].sum(axis=1, keepdims=True)
 
 
         else:

@@ -119,11 +119,10 @@ val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.ba
                                              sampler=val_sample_strategy)
 
 
-
 if args.input_type == 'node_based':
     args.max_seq_len = dataset.max_seq_len
     args.vocab_size = args.max_num_node + 3  # 0 for padding, self.n+1 for add_node, self.n+2 for termination
-elif args.input_type == 'preceding_neighbors_vector':
+elif args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
     args.max_seq_len = dataset.max_seq_len
     args.vocab_size = None
 else:
@@ -179,7 +178,7 @@ def cal_performance(pred, gold, trg_pad_idx, args, smoothing=False):
         n_word = non_pad_mask.sum().item()
 
         return loss, n_correct, n_word
-    elif args.input_type == 'preceding_neighbors_vector':
+    elif args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
         return loss, None
     else:
         raise NotImplementedError
@@ -210,19 +209,6 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
         elif args.input_type == 'preceding_neighbors_vector':
 
             pred = torch.sigmoid(pred).view(-1, args.max_seq_len, pred.size(-1))
-            # gold = gold.view(-1, args.max_seq_len, gold.size(-1))
-
-            # print('\n', pred)
-
-            # gold = gold.clone()
-            # ind_0 = gold == args.zero_input
-            # ind_1 = gold == args.one_input
-            # ind_2 = gold == args.dontcare_input
-            # ind_3 = gold == args.trg_pad_idx
-            # gold[ind_0] = 0
-            # gold[ind_1] = 1
-            # gold[ind_2] = 0
-            # gold[ind_3] = -1
 
             cond_1 = gold != args.trg_pad_idx
             if args.use_max_prev_node:
@@ -248,15 +234,37 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             pred_2 = torch.tril(pred * cond_2, diagonal=0)
             gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
 
-            # print(pred_1[0])
-
             p_zero = torch.exp(-F.binary_cross_entropy(pred_2, gold_2, reduction='none').sum(-1))
             loss_2 = torch.log(1-p_zero[cond_0]).sum()
             loss = loss_1 + loss_2
-            # print('###############################   ', p_zero[cond_0].max().item())
-            # print('#########################                ', loss_1.item(), loss_2.item(), loss.item())
-            # input()
-            # loss = loss_1
+        elif args.input_type == 'max_prev_node_neighbors_vec':
+
+            pred = torch.sigmoid(pred).view(-1, args.max_seq_len, pred.size(-1))
+
+            cond_pad = gold != args.trg_pad_idx
+            cond_max_prev = torch.ones(pred.size(0), pred.size(1), pred.size(2)).to(args.device)
+            cond_max_prev = torch.tril(cond_max_prev, diagonal=-1)
+            cond_max_prev = torch.flip( cond_max_prev, [2])
+            cond_max_prev[:, :, 0] = 1
+            pred_1 = pred * cond_pad * cond_max_prev
+            gold_1 = gold * cond_pad * cond_max_prev
+            ind_0 = gold_1 == args.zero_input
+            ind_1 = gold_1 == args.one_input
+            gold_1[ind_0] = 0
+            gold_1[ind_1] = 1
+
+            loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='sum')
+
+            cond_zeros_1d = gold[:, :, 0] != args.trg_pad_idx
+            cond_zeros_1d[:, 0] = False
+            cond_zeros_2d = cond_zeros_1d.unsqueeze(-1).repeat(1, 1, gold.size(-1))
+
+            pred_2 = pred * cond_zeros_2d * cond_max_prev
+            gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
+
+            p_zero = torch.exp(-F.binary_cross_entropy(pred_2, gold_2, reduction='none').sum(-1))
+            loss_2 = torch.log(1-p_zero[cond_zeros_1d]).sum()
+            loss = loss_1 + loss_2
         else:
             raise NotImplementedError
     return loss
