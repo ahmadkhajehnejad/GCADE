@@ -217,6 +217,26 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
                 cond_mpn = torch.triu(cond_mpn, diagonal=-args.max_prev_node+1)
                 cond_mpn[:, :, 0] = 1
                 cond_1 = cond_1 * cond_mpn
+
+            if args.use_bfs_incremental_parent_idx:
+                gold_0 = gold[:, :, 1:].clone()
+                ind_dontcare = gold_0 == args.dontcare_input
+                ind_0 = gold_0 == args.zero_input
+                ind_1 = gold_0 == args.one_input
+                gold_0[ind_dontcare] = 0
+                gold_0[ind_0] = 0
+                gold_0[ind_1] = 1
+                cond_bfs_par = gold_0.cumsum(dim=2) > 0
+                cond_bfs_par = torch.cat(
+                    [torch.zeros(cond_bfs_par.size(0), 1, cond_bfs_par.size(2)).bool().to(args.device),
+                     cond_bfs_par[:, :-1, :]], dim=1)
+                cond_bfs_par[:, 1, 0] = True
+                cond_bfs_par = torch.cat(
+                    [torch.ones(cond_bfs_par.size(0), cond_bfs_par.size(1), 1).bool().to(args.device), cond_bfs_par],
+                    dim=2)
+                cond_bfs_par = torch.tril(cond_bfs_par, diagonal=0)
+                cond_1 = cond_1 * cond_bfs_par
+
             pred_1 = torch.tril(pred * cond_1, diagonal=0)
             gold_1 = torch.tril(gold * cond_1, diagonal=0)
             ind_0 = gold_1 == args.zero_input
@@ -231,6 +251,8 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             cond_2 = cond_0.unsqueeze(-1).repeat(1, 1, gold.size(-1))
             if args.use_max_prev_node:
                 cond_2 = cond_2 * cond_mpn
+            if args.use_bfs_incremental_parent_idx:
+                cond_2 = cond_2 * cond_bfs_par
             pred_2 = torch.tril(pred * cond_2, diagonal=0)
             gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
 

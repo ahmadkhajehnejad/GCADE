@@ -76,7 +76,7 @@ class Args():
 
         self.use_bfs_incremental_parent_idx = True # False #    ### now just implemented for max_pre_node_neighbors_vec input_type
 
-        self.input_type = 'max_prev_node_neighbors_vec' # 'preceding_neighbors_vector' # 'node_based'
+        self.input_type = 'preceding_neighbors_vector' # 'node_based' # 'max_prev_node_neighbors_vec' #
         self.only_encoder = True # False
         self.output_positional_embedding = False # True
         self.k_graph_attention = 0 # 4
