@@ -70,12 +70,14 @@ class Args():
         self.note = 'Gransformer'
 
         self.node_ordering = 'bfs' # 'blanket' #
-        self.use_max_prev_node = False # True
+        self.use_max_prev_node = False # True   ### ignored when using an input_type other than preceding_neighbors_vector'
         if self.use_max_prev_node:
             assert self.node_ordering in ['bfs']
 
+        self.use_bfs_incremental_parent_idx = True # False #    ### now just implemented for max_pre_node_neighbors_vec input_type
+
         self.input_type = 'max_prev_node_neighbors_vec' # 'preceding_neighbors_vector' # 'node_based'
-        self.only_encoder = True # False     ### ignored when using an input_type other than preceding_neighbors_vector'
+        self.only_encoder = True # False
         self.output_positional_embedding = False # True
         self.k_graph_attention = 0 # 4
         self.normalize_graph_attention = True # False

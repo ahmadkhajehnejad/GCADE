@@ -246,6 +246,23 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             cond_max_prev = torch.tril(cond_max_prev, diagonal=-1)
             cond_max_prev = torch.flip( cond_max_prev, [2])
             cond_max_prev[:, :, 0] = 1
+
+            if args.use_bfs_incremental_parent_idx:
+                gold_0 = gold[:,:,1:].clone()
+                ind_0 = gold_0 == args.zero_input
+                ind_1 = gold_0 == args.one_input
+                gold_0[ind_0] = 0
+                gold_0[ind_1] = 1
+                cond_bfs_par = gold_0.cumsum(dim=2) > 0
+                cond_bfs_par = torch.cat(
+                    [cond_bfs_par, torch.ones(cond_bfs_par.size(0), cond_bfs_par.size(1), 1).bool().to(args.device)],
+                    dim=2)
+                cond_bfs_par = torch.cat(
+                    [torch.zeros(cond_bfs_par.size(0), 1, cond_bfs_par.size(2)).bool().to(args.device),
+                     cond_bfs_par[:, :-1, :]], dim=1)
+                cond_bfs_par[:, :, 0] = True
+                cond_max_prev = cond_bfs_par
+
             pred_1 = pred * cond_pad * cond_max_prev
             gold_1 = gold * cond_pad * cond_max_prev
             ind_0 = gold_1 == args.zero_input
