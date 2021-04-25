@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from transformer.Layers import EncoderLayer, DecoderLayer
+from made.made import MADE
 
 
 __author__ = "Yu-Hsiang Huang"
@@ -270,10 +271,15 @@ class Transformer(nn.Module):
 
             sz_intermed = max(sz_in, sz_out)
 
-            # self.trg_word_prj = nn.Linear(sz_in, sz_out, bias=False)
-            self.trg_word_prj_1 = nn.Linear(sz_in, sz_intermed, bias=True)
-            self.trg_word_prj_2 = nn.Linear(sz_intermed, sz_intermed, bias=True)
-            self.trg_word_prj_3 = nn.Linear(sz_intermed, sz_out, bias=True)
+
+            if args.use_MADE:
+                hidden_sizes = [sz_intermed * 3 // 2] * 3
+                self.trg_word_MADE = MADE(sz_in, hidden_sizes, sz_out, num_masks=1, natural_ordering=True)
+            else:
+                # self.trg_word_prj = nn.Linear(sz_in, sz_out, bias=False)
+                self.trg_word_prj_1 = nn.Linear(sz_in, sz_intermed, bias=True)
+                self.trg_word_prj_2 = nn.Linear(sz_intermed, sz_intermed, bias=True)
+                self.trg_word_prj_3 = nn.Linear(sz_intermed, sz_out, bias=True)
         else:
             raise NotImplementedError
 
@@ -296,7 +302,7 @@ class Transformer(nn.Module):
             self.encoder.src_word_emb.weight = self.decoder.trg_word_emb.weight
 
 
-    def forward(self, src_seq, trg_seq, adj):
+    def forward(self, src_seq, trg_seq, gold, adj):
 
         k_gr_att = self.args.k_graph_attention
 
@@ -344,10 +350,13 @@ class Transformer(nn.Module):
             if self.args.output_positional_embedding:
                 dec_output = torch.cat([dec_output, outputPositionalEncoding(dec_output)], dim=2)
 
-        # seq_logit = self.trg_word_prj(dec_output)
-        seq_logit = self.trg_word_prj_1(dec_output)
-        seq_logit = self.trg_word_prj_2(nn.functional.relu(seq_logit))
-        seq_logit = self.trg_word_prj_3(nn.functional.relu(seq_logit))
+        if self.args.use_MADE:
+            seq_logit = self.trg_word_MADE(torch.cat([dec_output, gold], dim=2))
+        else:
+            # seq_logit = self.trg_word_prj(dec_output)
+            seq_logit = self.trg_word_prj_1(dec_output)
+            seq_logit = self.trg_word_prj_2(nn.functional.relu(seq_logit))
+            seq_logit = self.trg_word_prj_3(nn.functional.relu(seq_logit))
 
         if self.scale_prj:
             seq_logit *= self.d_model ** -0.5

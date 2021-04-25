@@ -335,9 +335,14 @@ def generate_graph(gg_model, args):
 
         not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
         for i in range(args.max_seq_len - 1):
+            if args.use_bfs_incremental_parent_idx:
+                min_par_idx = torch.zeros(src_seq.size(0), src_seq.size(2), dtype=torch.int32).bool().to(args.device)
             pred_probs = torch.sigmoid(gg_model(src_seq, src_seq, adj)).view(-1, args.max_seq_len, args.max_num_node + 1)
-            if args.use_max_prev_node and i > args.max_prev_node:
-                pred_probs[:, i, 1:i - args.max_prev_node + 1] = 0
+            # if args.use_max_prev_node and i > args.max_prev_node:
+            #     pred_probs[:, i, 1:i - args.max_prev_node + 1] = 0
+            # if args.use_bfs_incremental_parent_idx:
+            #     for j in range(pred_probs.size(0)):
+            #         pred_probs[j, i, 1:min_par_idx[j]] = 0
             num_trials = 0
             remainder_idx = not_finished_idx.clone()
             src_seq[remainder_idx, i+1, i+1:] = args.dontcare_input
@@ -350,6 +355,8 @@ def generate_graph(gg_model, args):
                 tmp[ind_0] = args.zero_input
                 tmp[ind_1] = args.one_input
                 src_seq[remainder_idx, i + 1, :i + 1] = tmp
+                if args.use_bfs_incremental_parent_idx:
+                    src_seq[remainder_idx, i+1,:][min_par_idx[remainder_idx, :]] = args.zero_input
                 if args.use_max_prev_node and i > args.max_prev_node:
                     src_seq[remainder_idx, i+1, 1:i - args.max_prev_node + 1] = args.dontcare_input
                 if i == 0:
@@ -357,6 +364,10 @@ def generate_graph(gg_model, args):
                 remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
             new_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] == args.one_input)
             src_seq[new_finished_idx, i + 1, 1:] = args.src_pad_idx
+            if i > 0:
+                tmp = src_seq[not_finished_idx, i + 1, :] == args.one_input
+                min_par_idx[not_finished_idx, :] = tmp.cumsum(dim=1) == 0
+                min_par_idx[not_finished_idx, 0] = False
             not_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] != args.one_input)
             # if num_trials > 1:
             #     print('                          ', i, '      num of trials:', num_trials)
@@ -405,6 +416,8 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
         trsz = 0
         gg_model.train()
         for i, data in enumerate(dataset_train, 0):
+            if args.use_MADE:
+                gg_model.trg_word_MADE.update_masks()
             # print(' #', i)
             print('.', end='')
             sys.stdout.flush()
@@ -431,7 +444,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             adj = data['adj'].to(args.device)
 
             optimizer.zero_grad()
-            pred = gg_model(src_seq, trg_seq, adj)
+            pred = gg_model(src_seq, trg_seq, gold, adj)
             loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
@@ -446,12 +459,14 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
         vlsz = 0
         gg_model.eval()
         for i, data in enumerate(dataset_validation, 0):
+            if args.use_MADE:
+                gg_model.trg_word_MADE.update_masks()
             src_seq = data['src_seq'].to(args.device)
             trg_seq = data['src_seq'].to(args.device) 
             gold = data['trg_seq'].contiguous().to(args.device)
             adj = data['adj'].to(args.device)
 
-            pred = gg_model(src_seq, trg_seq, adj)
+            pred = gg_model(src_seq, trg_seq, gold, adj)
             loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
 
             val_running_loss += loss.item()

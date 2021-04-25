@@ -10,7 +10,7 @@ class Args():
         # self.graph_type = 'caveman_small'
         # self.graph_type = 'caveman_small_single'
         # self.graph_type = 'community4'
-        self.graph_type = 'grid'
+        # self.graph_type = 'grid'
         # self.graph_type = 'grid_small'
         # self.graph_type = 'ladder_small'
 
@@ -19,7 +19,7 @@ class Args():
         # self.graph_type = 'barabasi'
         # self.graph_type = 'barabasi_small'
         # self.graph_type = 'citeseer'             ### Ego
-        # self.graph_type = 'citeseer_small'       ### Ego-small
+        self.graph_type = 'citeseer_small'       ### Ego-small
 
         # self.graph_type = 'barabasi_noise'
         # self.noise = 10
@@ -76,7 +76,7 @@ class Args():
 
         self.use_bfs_incremental_parent_idx = True # False #    ### now just implemented for max_pre_node_neighbors_vec input_type
 
-        self.input_type = 'preceding_neighbors_vector' # 'node_based' # 'max_prev_node_neighbors_vec' #
+        self.input_type = 'preceding_neighbors_vector' # 'max_prev_node_neighbors_vec' # 'node_based' #
         self.only_encoder = True # False
         self.output_positional_embedding = False # True
         self.k_graph_attention = 0 # 4
@@ -103,12 +103,13 @@ class Args():
 
         ### Transformer settings
 
+        self.use_MADE = True # False #
         self.d_model = 100 # 512
         self.d_word_vec = 100 # 512   ## should be equal to self.d_model
         self.d_inner_hid = 400 # 2048
-        self.d_k = 20 # 64
-        self.d_v = 20 # 64
-        self.n_layers = 3 # 6
+        self.d_k = 50 # 64
+        self.d_v = 50 # 64
+        self.n_layers = 6 # 6
         self.n_head = 1 # 8
         self.ensemble_input_type = 'repeat' # 'multihop-single' # 'negative' # 'multihop' #
         if self.ensemble_input_type == 'negative':
