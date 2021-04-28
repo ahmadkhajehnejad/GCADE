@@ -75,8 +75,12 @@ class EnsembleMultiHeadAttention(nn.Module):
         self.n_ensemble_k = n_ensemble_k
 
         if k_gr_att > 0:
-            self.gr_att_linear_list = nn.ModuleList([
-                nn.Linear(k_gr_att, 1, bias=False)
+            self.gr_att_linear_list_1 = nn.ModuleList([
+                nn.Linear(k_gr_att, k_gr_att, bias=True)
+                for _ in range(n_ensemble_q * n_ensemble_k * n_head)
+            ])
+            self.gr_att_linear_list_2 = nn.ModuleList([
+                nn.Linear(k_gr_att, 1, bias=True)
                 for _ in range(n_ensemble_q * n_ensemble_k * n_head)
             ])
 
@@ -102,7 +106,7 @@ class EnsembleMultiHeadAttention(nn.Module):
         # self.attention = EnsembleScaledDotProductAttention(temperature=d_k ** 0.5)
 
         self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        # self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
 
     def forward(self, q, k, v, mask=None, gr_mask=None):
@@ -155,16 +159,21 @@ class EnsembleMultiHeadAttention(nn.Module):
 
                 ################### ScaledDotProductAttention ######################
                 attn_ = torch.matmul(q_ens / self.temperature, k_ens.transpose(2, 3))
+                '''
+                attn_ = torch.zeros(sz_b, n_head, len_q, len_k).to(v.device)
+                '''
 
                 if mask is not None:
                     if gr_mask is not None:
                         for h in range(self.n_head):
-                            gr_att_linear = self.gr_att_linear_list[i * n_ensemble_k * n_head + j * n_head + h]
-                            gr_mask_agg = gr_att_linear(gr_mask.transpose(1,2).transpose(2,3))   #  sz_b * k_gr_attr * len_k * len_q ---> sz_b * 1 * len_k * len_q
+                            gr_att_linear_1 = self.gr_att_linear_list_1[i * n_ensemble_k * n_head + j * n_head + h]
+                            gr_att_linear_2 = self.gr_att_linear_list_2[i * n_ensemble_k * n_head + j * n_head + h]
+                            gr_mask_agg = gr_att_linear_2(F.relu(gr_att_linear_1(gr_mask.transpose(1,2).transpose(2,3))))   #  sz_b * k_gr_attr * len_k * len_q ---> sz_b * 1 * len_k * len_q
                             gr_mask_agg = gr_mask_agg.squeeze(-1)
                             attn_[:,h,:,:] = attn_[:,h,:,:] + gr_mask_agg
                             # attn_[:,h,:,:] = attn_[:,h,:,:] * gr_mask_agg
                             # attn_[:,h,:,:] = gr_mask_agg
+                            # attn_[:,h,:,:] = attn_[:,h,:,:].masked_fill(gr_mask_agg == 0, -1e9)
                             # attn_[:,h,:,:] = 1
                     attn_ = attn_.masked_fill(mask == 0, -1e9)
                 attn[:,:,:,:,j] = attn_
@@ -192,7 +201,7 @@ class EnsembleMultiHeadAttention(nn.Module):
         # if residual.size(2) == 1:
         #     residual = residual.repeat(1,1,n_ensemble_q,1)
         output += residual
-        output = self.layer_norm(output)
+        # output = self.layer_norm(output)
 
         return output, None # returns None for attn
 

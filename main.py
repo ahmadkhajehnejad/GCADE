@@ -18,7 +18,7 @@ import pickle
 
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 # if __name__ == '__main__':
 
@@ -186,7 +186,6 @@ def cal_performance(pred, gold, trg_pad_idx, args, smoothing=False):
 
 def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
-
     if smoothing:
         if args.input_type == 'node_based':
             gold = gold.contiguous().view(-1)
@@ -337,7 +336,7 @@ def generate_graph(gg_model, args):
         for i in range(args.max_seq_len - 1):
             if args.use_bfs_incremental_parent_idx:
                 min_par_idx = torch.zeros(src_seq.size(0), src_seq.size(2), dtype=torch.int32).bool().to(args.device)
-            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq, adj)).view(-1, args.max_seq_len, args.max_num_node + 1)
+            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq, None, adj)).view(-1, args.max_seq_len, args.max_num_node + 1)
             # if args.use_max_prev_node and i > args.max_prev_node:
             #     pred_probs[:, i, 1:i - args.max_prev_node + 1] = 0
             # if args.use_bfs_incremental_parent_idx:
@@ -364,7 +363,7 @@ def generate_graph(gg_model, args):
                 remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
             new_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] == args.one_input)
             src_seq[new_finished_idx, i + 1, 1:] = args.src_pad_idx
-            if i > 0:
+            if i > 0 and args.use_bfs_incremental_parent_idx:
                 tmp = src_seq[not_finished_idx, i + 1, :] == args.one_input
                 min_par_idx[not_finished_idx, :] = tmp.cumsum(dim=1) == 0
                 min_par_idx[not_finished_idx, 0] = False
@@ -454,8 +453,8 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             trsz += src_seq.size(0)
 
         val_running_loss = 0.0
-        vlsz = 1
-        '''
+        # vlsz = 1
+        # '''
         vlsz = 0
         gg_model.eval()
         for i, data in enumerate(dataset_validation, 0):
@@ -471,7 +470,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
-        '''
+        # '''
 
 
         loss_buffer.append(running_loss / trsz)

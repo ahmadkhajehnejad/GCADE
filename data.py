@@ -755,6 +755,18 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         else:
             raise NotImplementedError
 
+        if self.args.input_bfs_depth:
+            depth = np.zeros([len_batch], dtype=np.long)
+            for i in range(1, len_batch):
+                ind = adj_copy[i,:i].astype(bool)
+                depth[i] = depth[:i][ind].min() + 1
+
+            dp_seq = np.zeros([self.n + 1, self.n], dtype=np.float32)
+            for i in range(len_batch):
+                dp_seq[i+1, depth[i]] = 1
+
+            src_seq = np.concatenate([src_seq, dp_seq], axis=1)
+
         # print('\n', '####################### adj ######################')
         # print(adj_copy)
         # print('####################### trg ######################')

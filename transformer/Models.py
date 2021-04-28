@@ -89,6 +89,8 @@ class Encoder(nn.Module):
                 else:
                     sz_input_vec = n_ensemble * (args.max_prev_node + 1)
                     sz_emb = n_ensemble * d_word_vec
+            if args.input_bfs_depth:
+                sz_input_vec = sz_input_vec + args.max_num_node
             # self.src_word_emb = nn.Linear(sz_input_vec, sz_emb, bias=False)
             sz_intermed = max(sz_input_vec, sz_emb)
             self.src_word_emb_1 = nn.Linear(sz_input_vec, sz_intermed, bias=True)
@@ -103,7 +105,7 @@ class Encoder(nn.Module):
         self.layer_stack = nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=args.k_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
-        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        # self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
         self.d_model = d_model
 
@@ -126,7 +128,7 @@ class Encoder(nn.Module):
         if self.scale_emb:
             enc_output *= self.d_model ** 0.5
         enc_output = self.dropout(self.position_enc(enc_output))
-        enc_output = self.layer_norm(enc_output)
+        # enc_output = self.layer_norm(enc_output)
 
         for enc_layer in self.layer_stack:
             enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask)
@@ -176,7 +178,7 @@ class Decoder(nn.Module):
         self.layer_stack = nn.ModuleList([
             DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=args.k_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
-        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        # self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
         self.d_model = d_model
 
@@ -199,7 +201,7 @@ class Decoder(nn.Module):
         if self.scale_emb:
             dec_output *= self.d_model ** 0.5
         dec_output = self.dropout(self.position_enc(dec_output))
-        dec_output = self.layer_norm(dec_output)
+        # dec_output = self.layer_norm(dec_output)
 
         for dec_layer in self.layer_stack:
             dec_output, dec_slf_attn, dec_enc_attn = dec_layer(

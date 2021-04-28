@@ -11,7 +11,7 @@ class Args():
         # self.graph_type = 'caveman_small_single'
         # self.graph_type = 'community4'
         # self.graph_type = 'grid'
-        # self.graph_type = 'grid_small'
+        self.graph_type = 'grid_small'
         # self.graph_type = 'ladder_small'
 
         # self.graph_type = 'enzymes'
@@ -19,7 +19,7 @@ class Args():
         # self.graph_type = 'barabasi'
         # self.graph_type = 'barabasi_small'
         # self.graph_type = 'citeseer'             ### Ego
-        self.graph_type = 'citeseer_small'       ### Ego-small
+        # self.graph_type = 'citeseer_small'       ### Ego-small
 
         # self.graph_type = 'barabasi_noise'
         # self.noise = 10
@@ -46,15 +46,15 @@ class Args():
 
 
         self.batch_size = 32 # 32  # normal: 32, and the rest should be changed accordingly
-        self.test_batch_size = 32 # 32
+        self.test_batch_size = 100 # 32
         self.test_total_size = 1000 # 1000
 
         ### training config
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32 * (32 // self.batch_size) # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
-        self.epochs = 300 # 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 200 # 100
-        self.epochs_test = 10 # 100
+        self.epochs = 301 # 3000  # now one epoch means self.batch_ratio x batch_size
+        self.epochs_test_start = 30 # 100
+        self.epochs_test = 50 # 100
         self.epochs_log = 100
         self.epochs_save = 100
 
@@ -70,7 +70,7 @@ class Args():
         self.note = 'Gransformer'
 
         self.node_ordering = 'bfs' # 'blanket' #
-        self.use_max_prev_node = False # True   ### ignored when using an input_type other than preceding_neighbors_vector'
+        self.use_max_prev_node = False # True #   ### ignored when using an input_type other than preceding_neighbors_vector'
         if self.use_max_prev_node:
             assert self.node_ordering in ['bfs']
 
@@ -78,9 +78,12 @@ class Args():
 
         self.input_type = 'preceding_neighbors_vector' # 'max_prev_node_neighbors_vec' # 'node_based' #
         self.only_encoder = True # False
-        self.output_positional_embedding = False # True
+        self.output_positional_embedding = False # True #   
+        self.input_bfs_depth = False # True #  
+        if self.input_bfs_depth:
+            assert self.node_ordering in ['bfs']
         self.k_graph_attention = 0 # 4
-        self.normalize_graph_attention = True # False
+        self.normalize_graph_attention = False # True # 
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0
@@ -103,7 +106,7 @@ class Args():
 
         ### Transformer settings
 
-        self.use_MADE = True # False #
+        self.use_MADE = True # False #  
         self.d_model = 100 # 512
         self.d_word_vec = 100 # 512   ## should be equal to self.d_model
         self.d_inner_hid = 400 # 2048
