@@ -363,7 +363,7 @@ class Transformer(nn.Module):
         if self.scale_prj:
             seq_logit *= self.d_model ** -0.5
 
-        return seq_logit.view(-1, seq_logit.size(2))
+        return seq_logit.view(-1, seq_logit.size(2)), dec_output
 
 
 # def ensembleMask(mask,n_ensemble):

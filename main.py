@@ -315,8 +315,8 @@ def generate_graph(gg_model, args):
     if args.input_type == 'node_based':
         src_seq = torch.zeros((args.test_batch_size, args.max_seq_len), dtype=torch.long).to(args.device)
         for i in range(args.max_seq_len - 1):
-            #pred = gg_model(src_seq, src_seq).max(1)[1].view([args.test_batch_size, args.max_seq_len])
-            pred_logprobs = gg_model(src_seq, src_seq) #.max(1)[1].view([args.test_batch_size, args.max_seq_len])
+            #pred = gg_model, *_ (src_seq, src_seq).max(1)[1].view([args.test_batch_size, args.max_seq_len])
+            pred_logprobs, *_ = gg_model(src_seq, src_seq) #.max(1)[1].view([args.test_batch_size, args.max_seq_len])
             pred_probs = pred_logprobs.exp() / pred_logprobs.exp().sum(axis=-1, keepdim=True).repeat(1,pred_logprobs.size(-1))
             pred = torch.tensor([np.random.choice(np.arange(probs.size(0)),size=1,p=probs.detach().cpu().numpy())[0]
                                  for probs in pred_probs]).view([args.test_batch_size, args.max_seq_len]).to(args.device)
@@ -336,7 +336,9 @@ def generate_graph(gg_model, args):
         for i in range(args.max_seq_len - 1):
             if args.use_bfs_incremental_parent_idx:
                 min_par_idx = torch.zeros(src_seq.size(0), src_seq.size(2), dtype=torch.int32).bool().to(args.device)
-            pred_probs = torch.sigmoid(gg_model(src_seq, src_seq, None, adj)).view(-1, args.max_seq_len, args.max_num_node + 1)
+
+            tmp, dec_output = gg_model(src_seq, src_seq, src_seq, adj)
+            pred_probs = torch.sigmoid(tmp).view(-1, args.max_seq_len, args.max_num_node + 1)
             # if args.use_max_prev_node and i > args.max_prev_node:
             #     pred_probs[:, i, 1:i - args.max_prev_node + 1] = 0
             # if args.use_bfs_incremental_parent_idx:
@@ -347,17 +349,42 @@ def generate_graph(gg_model, args):
             src_seq[remainder_idx, i+1, i+1:] = args.dontcare_input
             while remainder_idx.sum().item() > 0:
                 num_trials += 1
-                tmp = (torch.rand([remainder_idx.sum().item(), i + 1], device=args.device) < pred_probs[remainder_idx,
+
+                if args.use_MADE:
+                    gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2))
+                    for j in range(i + 1):
+                        if args.use_max_prev_node and i > args.max_prev_node and j > 0 and j < i - args.max_prev_node + 1:
+                            gold[remainder_idx, j] = args.dontcare_input
+                        else:
+                            tmp = (torch.rand([remainder_idx.sum().item()], device=args.device) < pred_probs[
+                                remainder_idx,
+                                i, j]).float()
+                            ind_0 = tmp == 0
+                            ind_1 = tmp == 1
+                            tmp[ind_0] = args.zero_input
+                            tmp[ind_1] = args.one_input
+                            if args.use_bfs_incremental_parent_idx:
+                                tmp[min_par_idx[remainder_idx, j]] = args.zero_input
+                            gold[:, j] = tmp
+                        if j < i:
+                            tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], gold], dim=1))
+                            if gg_model.scale_prj:
+                                tmp *= gg_model.d_model ** -0.5
+                            pred_probs[remainder_idx, i, :] = torch.sigmoid(tmp)
+
+                    src_seq[remainder_idx, i + 1, :i + 1] = gold[:, :i+1]
+                else:
+                    tmp = (torch.rand([remainder_idx.sum().item(), i + 1], device=args.device) < pred_probs[remainder_idx,
                                                                                          i, :i + 1]).float()
-                ind_0 = tmp == 0
-                ind_1 = tmp == 1
-                tmp[ind_0] = args.zero_input
-                tmp[ind_1] = args.one_input
-                src_seq[remainder_idx, i + 1, :i + 1] = tmp
-                if args.use_bfs_incremental_parent_idx:
-                    src_seq[remainder_idx, i+1,:][min_par_idx[remainder_idx, :]] = args.zero_input
-                if args.use_max_prev_node and i > args.max_prev_node:
-                    src_seq[remainder_idx, i+1, 1:i - args.max_prev_node + 1] = args.dontcare_input
+                    ind_0 = tmp == 0
+                    ind_1 = tmp == 1
+                    tmp[ind_0] = args.zero_input
+                    tmp[ind_1] = args.one_input
+                    src_seq[remainder_idx, i + 1, :i + 1] = tmp
+                    if args.use_bfs_incremental_parent_idx:
+                        src_seq[remainder_idx, i+1,:][min_par_idx[remainder_idx, :]] = args.zero_input
+                    if args.use_max_prev_node and i > args.max_prev_node:
+                        src_seq[remainder_idx, i+1, 1:i - args.max_prev_node + 1] = args.dontcare_input
                 if i == 0:
                     break
                 remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
@@ -443,7 +470,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             adj = data['adj'].to(args.device)
 
             optimizer.zero_grad()
-            pred = gg_model(src_seq, trg_seq, gold, adj)
+            pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
             loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
@@ -465,7 +492,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             gold = data['trg_seq'].contiguous().to(args.device)
             adj = data['adj'].to(args.device)
 
-            pred = gg_model(src_seq, trg_seq, gold, adj)
+            pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
             loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
 
             val_running_loss += loss.item()

@@ -10,8 +10,8 @@ class Args():
         # self.graph_type = 'caveman_small'
         # self.graph_type = 'caveman_small_single'
         # self.graph_type = 'community4'
-        # self.graph_type = 'grid'
-        self.graph_type = 'grid_small'
+        self.graph_type = 'grid'
+        # self.graph_type = 'grid_small'
         # self.graph_type = 'ladder_small'
 
         # self.graph_type = 'enzymes'
@@ -53,8 +53,8 @@ class Args():
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32 * (32 // self.batch_size) # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epochs = 301 # 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 30 # 100
-        self.epochs_test = 50 # 100
+        self.epochs_test_start = 100 # 100
+        self.epochs_test = 100 # 100
         self.epochs_log = 100
         self.epochs_save = 100
 
