@@ -275,7 +275,7 @@ class Transformer(nn.Module):
 
 
             if args.use_MADE:
-                hidden_sizes = [sz_intermed * 3 // 2] * 3
+                hidden_sizes = [sz_intermed * 3 // 2] * args.MADE_num_hidden_layers
                 self.trg_word_MADE = MADE(sz_in, hidden_sizes, sz_out, num_masks=args.MADE_num_masks,
                                           natural_ordering=args.MADE_natural_ordering)
             else:
