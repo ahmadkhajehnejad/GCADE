@@ -351,7 +351,7 @@ def generate_graph(gg_model, args):
                 num_trials += 1
 
                 if args.use_MADE:
-                    gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2))
+                    gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2)).to(args.device)
                     for j in range(i + 1):
                         if args.use_max_prev_node and i > args.max_prev_node and j > 0 and j < i - args.max_prev_node + 1:
                             gold[remainder_idx, j] = args.dontcare_input
