@@ -76,6 +76,9 @@ class MADE(nn.Module):
         
         # sample the order of the inputs and the connectivity of all neurons
         self.m[-2] = np.arange(self.nout) if self.natural_ordering else rng.permutation(self.nout)
+        t = np.where(self.m[-2] == 0)[0][0]
+        self.m[-2][t] = self.m[-2][0]
+        self.m[-2][0] = 0
         self.m[-1] = np.concatenate([-1 * np.ones(self.nin_extra), self.m[-2].copy()])
         for l in range(L):
             self.m[l] = rng.randint(self.m[l-1].min(), self.nout-1, size=self.hidden_sizes[l])

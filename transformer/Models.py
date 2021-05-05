@@ -276,7 +276,8 @@ class Transformer(nn.Module):
 
             if args.use_MADE:
                 hidden_sizes = [sz_intermed * 3 // 2] * 3
-                self.trg_word_MADE = MADE(sz_in, hidden_sizes, sz_out, num_masks=1, natural_ordering=True)
+                self.trg_word_MADE = MADE(sz_in, hidden_sizes, sz_out, num_masks=args.MADE_num_masks,
+                                          natural_ordering=args.MADE_natural_ordering)
             else:
                 # self.trg_word_prj = nn.Linear(sz_in, sz_out, bias=False)
                 self.trg_word_prj_1 = nn.Linear(sz_in, sz_intermed, bias=True)

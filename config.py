@@ -106,7 +106,9 @@ class Args():
 
         ### Transformer settings
 
-        self.use_MADE = True # False #  
+        self.use_MADE = True # False #
+        self.MADE_num_masks = 5 # 1
+        self.MADE_natural_ordering = False # True #
         self.d_model = 100 # 512
         self.d_word_vec = 100 # 512   ## should be equal to self.d_model
         self.d_inner_hid = 400 # 2048
