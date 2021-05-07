@@ -106,7 +106,7 @@ class EnsembleMultiHeadAttention(nn.Module):
         # self.attention = EnsembleScaledDotProductAttention(temperature=d_k ** 0.5)
 
         self.dropout = nn.Dropout(dropout)
-        # self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
 
     def forward(self, q, k, v, mask=None, gr_mask=None):
@@ -201,7 +201,7 @@ class EnsembleMultiHeadAttention(nn.Module):
         # if residual.size(2) == 1:
         #     residual = residual.repeat(1,1,n_ensemble_q,1)
         output += residual
-        # output = self.layer_norm(output)
+        output = self.layer_norm(output)
 
         return output, None # returns None for attn
 

@@ -18,7 +18,7 @@ import pickle
 
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 # if __name__ == '__main__':
 
@@ -256,7 +256,8 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
 
             p_zero = torch.exp(-F.binary_cross_entropy(pred_2, gold_2, reduction='none').sum(-1))
-            loss_2 = torch.log(1-p_zero[cond_0]).sum()
+            # loss_2 = torch.log(1-p_zero[cond_0]).sum()
+            loss_2 = torch.log(torch.max(1-p_zero[cond_0], torch.tensor([1e-9]).to(args.device))).sum()
             loss = loss_1 + loss_2
         elif args.input_type == 'max_prev_node_neighbors_vec':
 
@@ -301,7 +302,7 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
 
             p_zero = torch.exp(-F.binary_cross_entropy(pred_2, gold_2, reduction='none').sum(-1))
-            loss_2 = torch.log(1-p_zero[cond_zeros_1d]).sum()
+            loss_2 = torch.log(torch.max(1-p_zero[cond_zeros_1d], torch.tensor([1e-9]).to(args.device))).sum()
             loss = loss_1 + loss_2
         else:
             raise NotImplementedError
@@ -480,8 +481,8 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             trsz += src_seq.size(0)
 
         val_running_loss = 0.0
-        # vlsz = 1
-        # '''
+        vlsz = 1
+        '''
         vlsz = 0
         gg_model.eval()
         for i, data in enumerate(dataset_validation, 0):
@@ -497,11 +498,11 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
-        # '''
+        '''
 
 
         loss_buffer.append(running_loss / trsz)
-        if len(loss_buffer) > 30:
+        if len(loss_buffer) > 5:
             loss_buffer = loss_buffer[1:]
         print('[epoch %d]     loss: %.3f     val: %.3f              lr: %f     avg_tr_loss: %f' %
               (epoch + 1, running_loss / trsz, val_running_loss / vlsz, optimizer._optimizer.param_groups[0]['lr'], np.mean(loss_buffer))) #get_lr(optimizer)))

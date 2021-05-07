@@ -105,7 +105,7 @@ class Encoder(nn.Module):
         self.layer_stack = nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=args.k_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
-        # self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
         self.d_model = d_model
 
@@ -128,7 +128,7 @@ class Encoder(nn.Module):
         if self.scale_emb:
             enc_output *= self.d_model ** 0.5
         enc_output = self.dropout(self.position_enc(enc_output))
-        # enc_output = self.layer_norm(enc_output)
+        enc_output = self.layer_norm(enc_output)
 
         for enc_layer in self.layer_stack:
             enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask)
@@ -178,7 +178,7 @@ class Decoder(nn.Module):
         self.layer_stack = nn.ModuleList([
             DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=args.k_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
-        # self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
         self.d_model = d_model
 
@@ -201,7 +201,7 @@ class Decoder(nn.Module):
         if self.scale_emb:
             dec_output *= self.d_model ** 0.5
         dec_output = self.dropout(self.position_enc(dec_output))
-        # dec_output = self.layer_norm(dec_output)
+        dec_output = self.layer_norm(dec_output)
 
         for dec_layer in self.layer_stack:
             dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
@@ -268,6 +268,13 @@ class Transformer(nn.Module):
                 sz_out = args.max_prev_node + 1
 
             sz_in = d_model * n_ensemble
+
+            if args.use_MADE:       ############# remove ###
+                sz_in_new = 40
+                self.before_trg_word_MADE = nn.Linear(sz_in, sz_in_new)
+                sz_in = sz_in_new
+                # self.before_MADE_norm = nn.LayerNorm(sz_in, eps=1e-6)
+                
             if args.output_positional_embedding:
                 sz_in = sz_in + args.max_seq_len
 
@@ -354,6 +361,7 @@ class Transformer(nn.Module):
                 dec_output = torch.cat([dec_output, outputPositionalEncoding(dec_output)], dim=2)
 
         if self.args.use_MADE:
+            # dec_output = self.before_MADE_norm( self.before_trg_word_MADE(dec_output))   ########### remove ###
             seq_logit = self.trg_word_MADE(torch.cat([dec_output, gold], dim=2))
         else:
             # seq_logit = self.trg_word_prj(dec_output)

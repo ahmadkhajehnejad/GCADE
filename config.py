@@ -52,9 +52,9 @@ class Args():
         ### training config
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32 * (32 // self.batch_size) # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
-        self.epochs = 301 # 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 100 # 100
-        self.epochs_test = 100 # 100
+        self.epochs = 3002 # 3000  # now one epoch means self.batch_ratio x batch_size
+        self.epochs_test_start = 500 # 100
+        self.epochs_test = 500 # 100
         self.epochs_log = 100
         self.epochs_save = 100
 
@@ -74,7 +74,7 @@ class Args():
         if self.use_max_prev_node:
             assert self.node_ordering in ['bfs']
 
-        self.use_bfs_incremental_parent_idx = True # False #    ### now just implemented for max_pre_node_neighbors_vec input_type
+        self.use_bfs_incremental_parent_idx = False # True #    ### now just implemented for max_pre_node_neighbors_vec input_type
 
         self.input_type = 'preceding_neighbors_vector' # 'max_prev_node_neighbors_vec' # 'node_based' #
         self.only_encoder = True # False
@@ -106,16 +106,16 @@ class Args():
 
         ### Transformer settings
 
-        self.use_MADE = True # False #
-        self.MADE_num_masks = 5 # 1
+        self.use_MADE = False # True #  
+        self.MADE_num_masks = 3 # 1
         self.MADE_natural_ordering = False # True #
-        self.MADE_num_hidden_layers = 2 # 3
-        self.d_model = 100 # 512
-        self.d_word_vec = 100 # 512   ## should be equal to self.d_model
-        self.d_inner_hid = 400 # 2048
-        self.d_k = 50 # 64
-        self.d_v = 50 # 64
-        self.n_layers = 6 # 6
+        self.MADE_num_hidden_layers = 1 # 3
+        self.d_model = 4 * 100 # 512
+        self.d_word_vec = 4 * 100 # 512   ## should be equal to self.d_model
+        self.d_inner_hid = 4 * 400 # 2048
+        self.d_k = 4 * 50 # 64
+        self.d_v = 4 * 50 # 64
+        self.n_layers = 1 # 6
         self.n_head = 1 # 8
         self.ensemble_input_type = 'repeat' # 'multihop-single' # 'negative' # 'multihop' #
         if self.ensemble_input_type == 'negative':
