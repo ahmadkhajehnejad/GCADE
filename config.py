@@ -53,8 +53,8 @@ class Args():
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32 * (32 // self.batch_size) # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epochs = 3002 # 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 500 # 100
-        self.epochs_test = 500 # 100
+        self.epochs_test_start = 750 # 100
+        self.epochs_test = 750 # 100
         self.epochs_log = 100
         self.epochs_save = 100
 
@@ -67,7 +67,6 @@ class Args():
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print('self.device:', self.device)
 
-        self.note = 'Gransformer'
 
         self.node_ordering = 'bfs' # 'blanket' #
         self.use_max_prev_node = False # True #   ### ignored when using an input_type other than preceding_neighbors_vector'
@@ -113,9 +112,9 @@ class Args():
         self.d_model = 4 * 100 # 512
         self.d_word_vec = 4 * 100 # 512   ## should be equal to self.d_model
         self.d_inner_hid = 4 * 400 # 2048
-        self.d_k = 4 * 50 # 64
-        self.d_v = 4 * 50 # 64
-        self.n_layers = 1 # 6
+        self.d_k = 2 * 4 * 50 # 64
+        self.d_v = 2 * 4 * 50 # 64
+        self.n_layers = 2 # 6
         self.n_head = 1 # 8
         self.ensemble_input_type = 'repeat' # 'multihop-single' # 'negative' # 'multihop' #
         if self.ensemble_input_type == 'negative':
@@ -144,7 +143,23 @@ class Args():
         self.use_tb = False  # use tensorboard
         self.output_dir = './output'
 
-
+        self.note = 'Gransformer-2layers'
+        if self.note == 'Gransformer-3layers':
+            self.n_layers = 3
+            self.node_ordering = 'bfs'
+            self.use_max_prev_node = False
+            self.use_bfs_incremental_parent_idx = False
+            self.k_graph_attention = 0
+            self.n_ensemble = 1
+            self.n_head = 1
+        elif self.note == 'Gransformer-2layers':
+            self.n_layers = 2
+            self.node_ordering = 'bfs'
+            self.use_max_prev_node = False
+            self.use_bfs_incremental_parent_idx = False
+            self.k_graph_attention = 0
+            self.n_ensemble = 1
+            self.n_head = 1
 
         ### filenames to save intemediate and final outputs
         # self.fname = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(

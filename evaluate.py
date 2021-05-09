@@ -17,20 +17,20 @@ class Args_evaluate():
         # self.model_name_all = ['GraphRNN_MLP','GraphRNN_RNN','Internal','Noise']
         # self.model_name_all = ['E-R', 'B-A']
         # self.model_name_all = ['GraphRNN_RNN']
-        self.model_name_all = ['Gransformer']
+        self.model_name_all = ['Gransformer-2layers']
         # self.model_name_all = ['Baseline_DGMG']
 
         # list of dataset to evaluate
         # use a list of 1 element to evaluate a single dataset
-        # self.dataset_name_all = ['caveman', 'grid', 'barabasi', 'citeseer', 'DD']
-        self.dataset_name_all = ['citeseer_small'] #['citeseer']
+        self.dataset_name_all = ['grid_small'] # ['caveman', 'grid', 'barabasi', 'citeseer', 'DD']
+        # self.dataset_name_all = ['citeseer_small'] #['citeseer']
         # self.dataset_name_all = ['citeseer_small','caveman_small']
         # self.dataset_name_all = ['barabasi_noise0','barabasi_noise2','barabasi_noise4','barabasi_noise6','barabasi_noise8','barabasi_noise10']
         # self.dataset_name_all = ['caveman_small', 'ladder_small', 'grid_small', 'ladder_small', 'enzymes_small', 'barabasi_small','citeseer_small']
 
-        self.epoch_start=50
-        self.epoch_end=51
-        self.epoch_step=5
+        self.epoch_start=750
+        self.epoch_end=751
+        self.epoch_step=750
 
 def find_nearest_idx(array,value):
     idx = (np.abs(array-value)).argmin()
@@ -209,7 +209,7 @@ def evaluation_epoch(dir_input, fname_output, model_name, dataset_name, args, is
 
         # get performance for proposed approaches
         # if 'GraphRNN' in model_name:
-        if model_name == 'Gransformer':
+        if model_name.startswith('Gransformer'):
             # read test graph
             for epoch in range(epoch_start,epoch_end,epoch_step):
                 for sample_time in range(1,2):# ,4):

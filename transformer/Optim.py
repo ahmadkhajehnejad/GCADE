@@ -36,16 +36,18 @@ class ScheduledOptim():
         # lr = self.lr_mul * self._get_lr_scale()
  
         lr = 0.001
+        
         '''
         if self.n_steps < 25 * 25:
             lr = 0.0005
         elif self.n_steps < 25 * 50:
-            lr = 10 * 0.00005
+            lr = 0.00005
         elif self.n_steps < 25 * 75:
-            lr = 100 * 0.000005
+            lr = 0.000005
         else:
-            lr = 1000 * 0.0000005
+            lr = 0.0000005
         '''
+        
 
         for param_group in self._optimizer.param_groups:
             param_group['lr'] = lr

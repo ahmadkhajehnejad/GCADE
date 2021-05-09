@@ -464,8 +464,15 @@ def load_graph_list(fname,is_real=True):
         if len(edges_with_selfloops)>0:
             graph_list[i].remove_edges_from(edges_with_selfloops)
         if is_real:
+            '''
+            c_list = list(nx.connected_components(graph_list[i]))
+            p = np.array([len(graph_list[i].subgraph(c)) for c in c_list])
+            p = p / p.sum()
+            c_ind = int(np.random.choice(np.arange(len(p)), 1, False, p)[0])
+            graph_list[i] = graph_list[i].subgraph(c_list[c_ind]).copy()
+            '''
             graph_list[i] = max([graph_list[i].subgraph(c).copy() for c in nx.connected_components(graph_list[i])], key=len)
-            # graph_list[i] = max(nx.connected_component_subgraphs(graph_list[i]), key=len)
+            ### graph_list[i] = max(nx.connected_component_subgraphs(graph_list[i]), key=len)
             graph_list[i] = nx.convert_node_labels_to_integers(graph_list[i])
         else:
             graph_list[i] = pick_connected_component_new(graph_list[i])
