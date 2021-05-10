@@ -24,9 +24,9 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-random.seed(123)
-np.random.seed(123)
-torch.manual_seed(123)
+# random.seed(123)
+# np.random.seed(123)
+# torch.manual_seed(123)
 
 args = Args()
 
@@ -504,7 +504,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             vlsz += src_seq.size(0)
         '''
         if epoch % args.epochs_save == 0:
-            fname = args.model_save_path + args.fname + '_' + str(epoch) + '.dat'
+            fname = args.model_save_path + args.fname + '_' + args.graph_type + '_'  + str(epoch) + '.dat'
             torch.save(gg_model.state_dict(), fname)
 
         loss_buffer.append(running_loss / trsz)

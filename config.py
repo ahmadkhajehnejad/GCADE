@@ -5,12 +5,12 @@ class Args():
     def __init__(self):
 
         ### Which dataset is used to train the model
-        # self.graph_type = 'DD'    ### protein
+        self.graph_type = 'DD'    ### protein
         # self.graph_type = 'caveman'  ### Community ??
         # self.graph_type = 'caveman_small'
         # self.graph_type = 'caveman_small_single'
         # self.graph_type = 'community4'
-        self.graph_type = 'grid'
+        # self.graph_type = 'grid'
         # self.graph_type = 'grid_small'
         # self.graph_type = 'ladder_small'
 
@@ -46,7 +46,7 @@ class Args():
 
 
         self.batch_size = 32 # 32  # normal: 32, and the rest should be changed accordingly
-        self.test_batch_size = 100 # 32
+        self.test_batch_size = 50
         self.test_total_size = 1000 # 1000
 
         ### training config
