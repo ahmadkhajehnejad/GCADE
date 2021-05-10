@@ -56,7 +56,7 @@ class Args():
         self.epochs_test_start = 750 # 100
         self.epochs_test = 750 # 100
         self.epochs_log = 100
-        self.epochs_save = 100
+        self.epochs_save = 50
 
         # self.lr = 0.003 #0.003
         # self.milestones = [4000, 10000]
