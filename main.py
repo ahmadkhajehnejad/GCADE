@@ -499,7 +499,9 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
         '''
-
+        if epoch % args.epochs_save == 0:
+            fname = args.model_save_path + args.fname + '_' + str(epoch) + '.dat'
+            torch.save(gg_model.state_dict(), fname)
 
         loss_buffer.append(running_loss / trsz)
         if len(loss_buffer) > 5:

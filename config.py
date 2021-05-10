@@ -172,6 +172,7 @@ class Args():
 
         ### filenames to save intemediate and final outputs
         # self.fname = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
+        self.fname = self.note
         #     self.hidden_size_rnn) + '_'
         # self.fname_pred = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
         #     self.hidden_size_rnn) + '_pred_'
