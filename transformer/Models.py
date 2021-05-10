@@ -101,6 +101,8 @@ class Encoder(nn.Module):
         else:
             raise NotImplementedError
         # self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
+        self.n_layers = n_layers
+        self.n_grlayers = args.n_grlayers
         self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
@@ -110,7 +112,7 @@ class Encoder(nn.Module):
         self.scale_emb = scale_emb
         self.d_model = d_model
 
-    def forward(self, src_seq, src_mask, gr_mask, return_attns=False):
+    def forward(self, src_seq, src_mask, gr_mask, adj, return_attns=False):
 
         enc_slf_attn_list = []
 
@@ -131,8 +133,16 @@ class Encoder(nn.Module):
         enc_output = self.dropout(self.position_enc(enc_output))
         enc_output = self.layer_norm(enc_output)
 
-        for enc_layer in self.layer_stack:
-            enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask)
+        if self.n_grlayers > 0:
+            gr_src_mask = torch.tril(adj, diagonal=0) * src_mask
+            diag_ind = torch.eye(gr_src_mask.size(1)).unsqueeze(0).repeat(gr_src_mask.size(0), 1, 1).bool().to(
+                gr_src_mask.device)
+            gr_src_mask[diag_ind] = 1
+        for i, enc_layer in enumerate(self.layer_stack):
+            if i < self.n_layers - self.n_grlayers:
+                enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask)
+            else:
+                enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=gr_src_mask, gr_mask=None)
             enc_slf_attn_list += [enc_slf_attn] if return_attns else []
 
         if return_attns:
@@ -350,7 +360,7 @@ class Transformer(nn.Module):
             if len(trg_seq.size()) == 3:
                 trg_seq = trg_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
 
-        enc_output, *_ = self.encoder(src_seq, src_mask, gr_mask)
+        enc_output, *_ = self.encoder(src_seq, src_mask, gr_mask, adj)
         if self.args.only_encoder:
             dec_output = enc_output
         else:

@@ -115,6 +115,9 @@ class Args():
         self.d_k = 2 * 4 * 50 # 64
         self.d_v = 2 * 4 * 50 # 64
         self.n_layers = 2 # 6
+        self.n_grlayers = 0
+        assert self.n_grlayers <= self.n_layers
+        assert self.n_grlayers == 0 or self.k_graph_attention == 0
         self.n_head = 1 # 8
         self.ensemble_input_type = 'repeat' # 'multihop-single' # 'negative' # 'multihop' #
         if self.ensemble_input_type == 'negative':
@@ -143,9 +146,10 @@ class Args():
         self.use_tb = False  # use tensorboard
         self.output_dir = './output'
 
-        self.note = 'Gransformer-gattk4'
+        self.note = 'Gransformer-4layers-2grlayers'
         if self.note == 'Gransformer-3layers':
             self.n_layers = 3
+            self.n_grlayers = 0
             self.node_ordering = 'bfs'
             self.use_max_prev_node = False
             self.use_bfs_incremental_parent_idx = False
@@ -154,6 +158,16 @@ class Args():
             self.n_head = 1
         elif self.note == 'Gransformer-2layers':
             self.n_layers = 2
+            self.n_grlayers = 0
+            self.node_ordering = 'bfs'
+            self.use_max_prev_node = False
+            self.use_bfs_incremental_parent_idx = False
+            self.k_graph_attention = 0
+            self.n_ensemble = 1
+            self.n_head = 1
+        elif self.note == 'Gransformer-4layers-2grlayers':
+            self.n_layers = 4
+            self.n_grlayers = 2
             self.node_ordering = 'bfs'
             self.use_max_prev_node = False
             self.use_bfs_incremental_parent_idx = False
@@ -162,6 +176,7 @@ class Args():
             self.n_head = 1
         elif self.note == 'Gransformer-gattk4':
             self.n_layers = 2
+            self.n_grlayers = 0
             self.node_ordering = 'bfs'
             self.use_max_prev_node = False
             self.use_bfs_incremental_parent_idx = False

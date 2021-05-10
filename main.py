@@ -525,15 +525,6 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
                 utils.save_graph_list(G_pred, fname)
             print('test done, graphs saved')
 
-    #
-    #     # save model checkpoint
-    #     if args.save:
-    #         if epoch % args.epochs_save == 0:
-    #             fname = args.model_save_path + args.fname + 'lstm_' + str(epoch) + '.dat'
-    #             torch.save(rnn.state_dict(), fname)
-    #             fname = args.model_save_path + args.fname + 'output_' + str(epoch) + '.dat'
-    #             torch.save(output.state_dict(), fname)
-    #     epoch += 1
     # np.save(args.timing_save_path+args.fname,time_all)
 
 train(model, dataset_loader, val_dataset_loader, optimizer, args)
