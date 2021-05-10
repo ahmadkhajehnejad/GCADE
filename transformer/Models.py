@@ -139,10 +139,10 @@ class Encoder(nn.Module):
                 gr_src_mask.device)
             gr_src_mask[diag_ind] = 1
         for i, enc_layer in enumerate(self.layer_stack):
-            if i < self.n_layers - self.n_grlayers:
-                enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask)
-            else:
+            if i < self.n_grlayers:
                 enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=gr_src_mask, gr_mask=None)
+            else:
+                enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask)
             enc_slf_attn_list += [enc_slf_attn] if return_attns else []
 
         if return_attns:
