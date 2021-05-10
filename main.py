@@ -389,6 +389,10 @@ def generate_graph(gg_model, args):
                 if i == 0:
                     break
                 remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
+                if num_trials >= args.max_num_generate_trials:
+                    print('   reached max_num_gen_trials   dim:', i, '   num remainder:', remainder_idx.detach().cpu().sum().item())
+                    src_seq[remainder_idx, i+1, 0] = args.one_input
+                    remainder_idx[:] = False
             new_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] == args.one_input)
             src_seq[new_finished_idx, i + 1, 1:] = args.src_pad_idx
             if i > 0 and args.use_bfs_incremental_parent_idx:

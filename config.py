@@ -75,6 +75,8 @@ class Args():
 
         self.use_bfs_incremental_parent_idx = False # True #    ### now just implemented for max_pre_node_neighbors_vec input_type
 
+        self.max_num_generate_trials = 1000
+
         self.input_type = 'preceding_neighbors_vector' # 'max_prev_node_neighbors_vec' # 'node_based' #
         self.only_encoder = True # False
         self.output_positional_embedding = False # True #   
@@ -146,7 +148,7 @@ class Args():
         self.use_tb = False  # use tensorboard
         self.output_dir = './output'
 
-        self.note = 'Gransformer-4layers-2grlayers'
+        self.note = 'Gransformer-gattk4'
         if self.note == 'Gransformer-3layers':
             self.n_layers = 3
             self.n_grlayers = 0
