@@ -170,7 +170,8 @@ class EnsembleMultiHeadAttention(nn.Module):
                             gr_att_linear_2 = self.gr_att_linear_list_2[i * n_ensemble_k * n_head + j * n_head + h]
                             gr_mask_agg = gr_att_linear_2(F.relu(gr_att_linear_1(gr_mask.transpose(1,2).transpose(2,3))))   #  sz_b * k_gr_attr * len_k * len_q ---> sz_b * 1 * len_k * len_q
                             gr_mask_agg = gr_mask_agg.squeeze(-1)
-                            attn_[:,h,:,:] = attn_[:,h,:,:] + gr_mask_agg
+                            # attn_[:,h,:,:] = attn_[:,h,:,:] + gr_mask_agg
+                            attn_[:,h,:,:] = attn_[:,h,:,:] + torch.log(torch.sigmoid(gr_mask_agg))
                             # attn_[:,h,:,:] = attn_[:,h,:,:] * gr_mask_agg
                             # attn_[:,h,:,:] = gr_mask_agg
                             # attn_[:,h,:,:] = attn_[:,h,:,:].masked_fill(gr_mask_agg == 0, -1e9)
