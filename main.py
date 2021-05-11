@@ -437,7 +437,10 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
     # start main loop
     time_all = np.zeros(args.epochs)
     loss_buffer = []
-    for epoch in range(args.epochs):
+    if args.epoch_train_start > 0:
+        fname = args.model_save_path + args.fname + '_' + args.graph_type + '_'  + str(args.epoch_train_start - 1) + '.dat'
+        gg_model.load_state_dict(torch.load(fname))
+    for epoch in range(args.epoch_train_start, args.epochs):
         time_start = time.time()
         running_loss = 0.0
         trsz = 0
