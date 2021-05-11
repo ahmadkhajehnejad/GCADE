@@ -5,12 +5,12 @@ class Args():
     def __init__(self):
 
         ### Which dataset is used to train the model
-        # self.graph_type = 'DD'    ### protein
+        self.graph_type = 'DD'    ### protein
         # self.graph_type = 'caveman'  ### Community ??
         # self.graph_type = 'caveman_small'
         # self.graph_type = 'caveman_small_single'
         # self.graph_type = 'community4'
-        self.graph_type = 'grid'
+        # self.graph_type = 'grid'
         # self.graph_type = 'grid_small'
         # self.graph_type = 'ladder_small'
 
@@ -148,7 +148,7 @@ class Args():
         self.use_tb = False  # use tensorboard
         self.output_dir = './output'
 
-        self.note = 'Gransformer-2layers-1grlayer'
+        self.note = 'Gransformer-2layers-bfsincpar'
         if self.note == 'Gransformer-3layers':
             self.n_layers = 3
             self.n_grlayers = 0
@@ -164,6 +164,15 @@ class Args():
             self.node_ordering = 'bfs'
             self.use_max_prev_node = False
             self.use_bfs_incremental_parent_idx = False
+            self.k_graph_attention = 0
+            self.n_ensemble = 1
+            self.n_head = 1
+        elif self.note == 'Gransformer-2layers-bfsincpar':
+            self.n_layers = 2
+            self.n_grlayers = 0
+            self.node_ordering = 'bfs'
+            self.use_max_prev_node = False
+            self.use_bfs_incremental_parent_idx = True
             self.k_graph_attention = 0
             self.n_ensemble = 1
             self.n_head = 1
