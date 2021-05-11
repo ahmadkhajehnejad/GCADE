@@ -134,10 +134,14 @@ class Encoder(nn.Module):
         enc_output = self.layer_norm(enc_output)
 
         if self.n_grlayers > 0:
-            gr_src_mask = torch.tril(adj, diagonal=0) * src_mask
+            gr_src_mask = torch.tril(adj, diagonal=0)
+
             diag_ind = torch.eye(gr_src_mask.size(1)).unsqueeze(0).repeat(gr_src_mask.size(0), 1, 1).bool().to(
                 gr_src_mask.device)
             gr_src_mask[diag_ind] = 1
+
+            gr_src_mask = gr_src_mask * src_mask   ## this line is not necessary and can be removed
+
         for i, enc_layer in enumerate(self.layer_stack):
             if i < self.n_grlayers:
                 enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=gr_src_mask, gr_mask=None)

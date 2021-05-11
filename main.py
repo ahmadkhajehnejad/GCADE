@@ -327,11 +327,8 @@ def generate_graph(gg_model, args):
                                   dtype=torch.float32).to(args.device)
 
 
-        if args.k_graph_attention > 0:
-            adj = torch.zeros((args.test_batch_size, args.max_seq_len, args.max_seq_len), dtype=torch.float32).to(
-                args.device)
-        else:
-            adj = None
+        adj = torch.zeros((args.test_batch_size, args.max_seq_len, args.max_seq_len), dtype=torch.float32).to(
+            args.device)
 
         not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
         for i in range(args.max_seq_len - 1):
@@ -405,14 +402,13 @@ def generate_graph(gg_model, args):
             if not_finished_idx.sum().item() == 0:
                 break
 
-            if args.k_graph_attention > 0:
-                tmp = src_seq[not_finished_idx, i + 1, 1:i + 1]
-                ind_0 = tmp == args.zero_input
-                ind_1 = tmp == args.one_input
-                tmp[ind_0] = 0
-                tmp[ind_1] = 1
-                adj[not_finished_idx, i + 1, 1:i + 1] = tmp
-                adj[not_finished_idx, 1:i + 1, i + 1] = tmp
+            tmp = src_seq[not_finished_idx, i + 1, 1:i + 1]
+            ind_0 = tmp == args.zero_input
+            ind_1 = tmp == args.one_input
+            tmp[ind_0] = 0
+            tmp[ind_1] = 1
+            adj[not_finished_idx, i + 1, 1:i + 1] = tmp
+            adj[not_finished_idx, 1:i + 1, i + 1] = tmp
 
         ind_0 = src_seq == args.zero_input
         ind_1 = src_seq == args.one_input
