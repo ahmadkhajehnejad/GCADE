@@ -149,7 +149,7 @@ class Args():
         self.use_tb = False  # use tensorboard
         self.output_dir = './output'
 
-        self.note = 'Gransformer-gattk4'
+        self.note = 'Gransformer-2layers-posoutput'
         if self.note == 'Gransformer-3layers':
             self.n_layers = 3
             self.n_grlayers = 0
@@ -168,6 +168,16 @@ class Args():
             self.k_graph_attention = 0
             self.n_ensemble = 1
             self.n_head = 1
+        elif self.note == 'Gransformer-2layers-posoutput':
+            self.n_layers = 2
+            self.n_grlayers = 0
+            self.node_ordering = 'bfs'
+            self.use_max_prev_node = False
+            self.use_bfs_incremental_parent_idx = False
+            self.k_graph_attention = 0
+            self.n_ensemble = 1
+            self.n_head = 1
+            self.output_positional_embedding = True    
         elif self.note == 'Gransformer-2layers-bfsincpar':
             self.n_layers = 2
             self.n_grlayers = 0
@@ -233,6 +243,8 @@ class Args():
             self.n_ensemble = 1
             self.n_head = 1
             self.k_graph_attention = 4
+        else:
+            raise Exception('Unknown note')
 
         ### filenames to save intemediate and final outputs
         # self.fname = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
