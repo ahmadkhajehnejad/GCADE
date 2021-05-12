@@ -105,8 +105,9 @@ class Encoder(nn.Module):
         self.n_grlayers = args.n_grlayers
         self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
+        k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=args.k_graph_attention, dropout=dropout)
+            EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=k_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
@@ -190,8 +191,9 @@ class Decoder(nn.Module):
         # self.trg_word_emb = nn.Embedding(n_trg_vocab, d_word_vec, padding_idx=pad_idx)
         self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
+        k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
         self.layer_stack = nn.ModuleList([
-            DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=args.k_graph_attention, dropout=dropout)
+            DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=k_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
@@ -340,9 +342,11 @@ class Transformer(nn.Module):
 
             gr_mask = torch.transpose(gr_mask, 2, 3)
             if self.args.normalize_graph_attention:
-                sm = gr_mask.sum(-1, keepdim=True)
-                sm = sm.masked_fill(sm == 0, 1)
-                gr_mask = gr_mask / sm
+                sm_1 = gr_mask.sum(-1, keepdim=True)
+                sm_1 = sm_1.masked_fill(sm_1 == 0, 1)
+                sm_2 = gr_mask.sum(-2, keepdim=True)
+                sm_2 = sm_2.masked_fill(sm_2 == 0, 1)
+                gr_mask = torch.cat([gr_mask / sm_1, (gr_mask / sm_2)[ :, 1:, :, :]], dim=1)
 
         else:
             gr_mask = None

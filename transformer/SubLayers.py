@@ -76,11 +76,11 @@ class EnsembleMultiHeadAttention(nn.Module):
 
         if k_gr_att > 0:
             self.gr_att_linear_list_1 = nn.ModuleList([
-                nn.Linear(k_gr_att + 1, k_gr_att + 1, bias=True)
+                nn.Linear(k_gr_att, k_gr_att, bias=True)
                 for _ in range(n_ensemble_q * n_ensemble_k * n_head)
             ])
             self.gr_att_linear_list_2 = nn.ModuleList([
-                nn.Linear(k_gr_att + 1, 1, bias=True)
+                nn.Linear(k_gr_att, 1, bias=True)
                 for _ in range(n_ensemble_q * n_ensemble_k * n_head)
             ])
 

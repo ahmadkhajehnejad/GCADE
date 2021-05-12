@@ -149,7 +149,7 @@ class Args():
         self.use_tb = False  # use tensorboard
         self.output_dir = './output'
 
-        self.note = 'Gransformer-2layers-bfsincpar'
+        self.note = 'Gransformer-gattk4'
         if self.note == 'Gransformer-3layers':
             self.n_layers = 3
             self.n_grlayers = 0
@@ -214,6 +214,25 @@ class Args():
             self.n_ensemble = 1
             self.n_head = 1
             self.k_graph_attention = 4
+        elif self.note == 'Gransformer-gattk4norm':
+            self.n_layers = 2
+            self.n_grlayers = 0
+            self.node_ordering = 'bfs'
+            self.use_max_prev_node = False
+            self.use_bfs_incremental_parent_idx = False
+            self.n_ensemble = 1
+            self.n_head = 1
+            self.k_graph_attention = 4
+            self.normalize_graph_attention = True
+        elif self.note == 'Gransformer-gattk4-bfsincpar':
+            self.n_layers = 2
+            self.n_grlayers = 0
+            self.node_ordering = 'bfs'
+            self.use_max_prev_node = False
+            self.use_bfs_incremental_parent_idx = True
+            self.n_ensemble = 1
+            self.n_head = 1
+            self.k_graph_attention = 4
 
         ### filenames to save intemediate and final outputs
         # self.fname = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
@@ -224,8 +243,9 @@ class Args():
         self.fname_pred = self.note + '_' + self.graph_type + '_' + self.input_type +  '_pred_'
         # self.fname_train = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
         #     self.hidden_size_rnn) + '_train_'
-        self.fname_train = self.note + '_' + self.graph_type + '_' + self.input_type + '_train_'
+        self.fname_train = self.note.split('-')[0] + '_' + self.graph_type + '_' + self.input_type + '_train_'
         # self.fname_test = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
         #     self.hidden_size_rnn) + '_test_'
-        self.fname_test = self.note + '_' + self.graph_type + '_' + self.input_type + '_test_'
+        self.fname_test = self.note.split('-')[0] + '_' + self.graph_type + '_' + self.input_type + '_test_'
         # self.fname_baseline = self.graph_save_path + self.graph_type + self.generator_baseline + '_' + self.metric_baseline
+
