@@ -1,6 +1,7 @@
 ''' Define the Transformer model '''
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 from transformer.Layers import EncoderLayer, DecoderLayer
 from made.made import MADE
@@ -64,6 +65,26 @@ class PositionalEncoding(nn.Module):
             raise NotImplementedError
 
 
+class GraphPositionalEncoding(nn.Module):
+
+    def __init__(self, args, d_hid):
+        super(GraphPositionalEncoding, self).__init__()
+        if args.normalize_graph_positional_encoding:
+            k_gr_kernel = 2 * args.k_graph_positional_encoding + 1
+        else:
+            k_gr_kernel = args.k_graph_positional_encoding + 1
+        self.linear_1 = nn.Linear(k_gr_kernel, k_gr_kernel, bias=True)
+        self.linear_2 = nn.Linear(k_gr_kernel, 1, bias=True)
+        self.prj = nn.Linear(args.max_num_node + 1, d_hid, bias = True)
+
+    def forward(self, x, gr_kernel):
+        gr_pos_enc = torch.sigmoid(self.linear_2(F.relu(self.linear_1(gr_kernel.transpose(-3, -2).transpose(-2,-1)))))
+        gr_pos_enc_prj = self.prj(gr_pos_enc.squeeze(-1))
+        if len(x.size()) == 4:
+            gr_pos_enc_prj = gr_pos_enc_prj.unsqueeze(2)
+        return x + gr_pos_enc_prj
+
+
 class Encoder(nn.Module):
     ''' A encoder model with self attention mechanism. '''
 
@@ -73,6 +94,7 @@ class Encoder(nn.Module):
 
         super().__init__()
 
+        self.args = args
         if args.input_type == 'node_based':
             self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
         elif args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
@@ -103,7 +125,10 @@ class Encoder(nn.Module):
         # self.src_word_emb = nn.Embedding(n_src_vocab, d_word_vec, padding_idx=pad_idx)
         self.n_layers = n_layers
         self.n_grlayers = args.n_grlayers
-        self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
+        if args.k_graph_positional_encoding > 0:
+            self.position_enc = GraphPositionalEncoding(args=args, d_hid=d_word_vec)
+        else:
+            self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
         self.layer_stack = nn.ModuleList([
@@ -113,7 +138,7 @@ class Encoder(nn.Module):
         self.scale_emb = scale_emb
         self.d_model = d_model
 
-    def forward(self, src_seq, src_mask, gr_mask, adj, return_attns=False):
+    def forward(self, src_seq, src_mask, gr_mask, adj, gr_pos_enc_kernel, return_attns=False):
 
         enc_slf_attn_list = []
 
@@ -131,7 +156,11 @@ class Encoder(nn.Module):
 
         if self.scale_emb:
             enc_output *= self.d_model ** 0.5
-        enc_output = self.dropout(self.position_enc(enc_output))
+
+        if self.args.k_graph_positional_encoding > 0:
+            enc_output = self.dropout(self.position_enc(enc_output, gr_pos_enc_kernel))
+        else:
+            enc_output = self.dropout(self.position_enc(enc_output))
         enc_output = self.layer_norm(enc_output)
 
         if self.n_grlayers > 0:
@@ -332,24 +361,40 @@ class Transformer(nn.Module):
     def forward(self, src_seq, trg_seq, gold, adj):
 
         k_gr_att = self.args.k_graph_attention
+        k_gr_pos_enc = self.args.k_graph_positional_encoding
 
-        if k_gr_att > 0:
-            gr_mask = torch.zeros(adj.size(0), k_gr_att + 1, adj.size(1), adj.size(2)).to(self.args.device)
-            gr_mask[:, 0, :, :] = torch.eye(adj.size(1)).to(self.args.device).unsqueeze(0).repeat(adj.size(0) ,1 ,1)
-            gr_mask[:, 1, :, :] = torch.triu(adj)
-            for i in range(2, k_gr_att + 1):
-                gr_mask[:, i, :, :] = torch.triu(torch.matmul(adj, gr_mask[:, i-1, :, :]))
+        k_gr = max(k_gr_att, k_gr_pos_enc)
 
-            gr_mask = torch.transpose(gr_mask, 2, 3)
-            if self.args.normalize_graph_attention:
-                sm_1 = gr_mask.sum(-1, keepdim=True)
+        if k_gr > 0:
+            gr_kernel = torch.zeros(adj.size(0), k_gr + 1, adj.size(1), adj.size(2)).to(self.args.device)
+            gr_kernel[:, 0, :, :] = torch.eye(adj.size(1)).to(self.args.device).unsqueeze(0).repeat(adj.size(0) ,1 ,1)
+            gr_kernel[:, 1, :, :] = torch.triu(adj)
+            for i in range(2, k_gr + 1):
+                gr_kernel[:, i, :, :] = torch.triu(torch.matmul(adj, gr_kernel[:, i-1, :, :]))
+
+            gr_kernel = torch.transpose(gr_kernel, 2, 3)
+            if self.args.normalize_graph_attention or self.args.normalize_graph_positional_encoding:
+                sm_1 = gr_kernel.sum(-1, keepdim=True)
                 sm_1 = sm_1.masked_fill(sm_1 == 0, 1)
-                sm_2 = gr_mask.sum(-2, keepdim=True)
+                sm_2 = gr_kernel.sum(-2, keepdim=True)
                 sm_2 = sm_2.masked_fill(sm_2 == 0, 1)
-                gr_mask = torch.cat([gr_mask / sm_1, (gr_mask / sm_2)[ :, 1:, :, :]], dim=1)
+                gr_kernel_normalized = torch.cat([gr_kernel / sm_1, (gr_kernel / sm_2)[ :, 1:, :, :]], dim=1)
+
+            if self.args.normalize_graph_attention:
+                gr_mask = gr_kernel_normalized[:, np.concatenate([np.arange(0, k_gr_att + 1),
+                                                                  np.arange(k_gr, k_gr + k_gr_att)]), :, :]
+            else:
+                gr_mask = gr_kernel[:, :k_gr_att + 1, :, :]
+
+            if self.args.normalize_graph_positional_encoding:
+                gr_pos_enc_kernel = gr_kernel_normalized[:, np.concatenate([np.arange(0, k_gr_pos_enc + 1),
+                                                                            np.arange(k_gr, k_gr + k_gr_pos_enc)]), :, :]
+            else:
+                gr_pos_enc_kernel = gr_kernel[:, :k_gr_pos_enc + 1, :, :]
 
         else:
             gr_mask = None
+            gr_pos_enc_kernel = None
 
         if len(src_seq.size()) == 4:
             src_mask = get_pad_mask(src_seq[:, :, 0, :], self.args.src_pad_idx,
@@ -369,7 +414,7 @@ class Transformer(nn.Module):
             if len(trg_seq.size()) == 3:
                 trg_seq = trg_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
 
-        enc_output, *_ = self.encoder(src_seq, src_mask, gr_mask, adj)
+        enc_output, *_ = self.encoder(src_seq, src_mask, gr_mask, adj, gr_pos_enc_kernel)
         if self.args.only_encoder:
             dec_output = enc_output
         else:

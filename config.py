@@ -85,7 +85,9 @@ class Args():
         if self.input_bfs_depth:
             assert self.node_ordering in ['bfs']
         self.k_graph_attention = 0 # 4
-        self.normalize_graph_attention = False # True # 
+        self.normalize_graph_attention = False  # True #
+        self.k_graph_positional_encoding = 0 # 4
+        self.normalize_graph_positional_encoding = False # True #
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0
@@ -149,102 +151,46 @@ class Args():
         self.use_tb = False  # use tensorboard
         self.output_dir = './output'
 
-        self.note = 'Gransformer-2layers-posoutput'
-        if self.note == 'Gransformer-3layers':
-            self.n_layers = 3
-            self.n_grlayers = 0
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = False
-            self.k_graph_attention = 0
-            self.n_ensemble = 1
-            self.n_head = 1
-        elif self.note == 'Gransformer-2layers':
-            self.n_layers = 2
-            self.n_grlayers = 0
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = False
-            self.k_graph_attention = 0
-            self.n_ensemble = 1
-            self.n_head = 1
-        elif self.note == 'Gransformer-2layers-posoutput':
-            self.n_layers = 2
-            self.n_grlayers = 0
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = False
-            self.k_graph_attention = 0
-            self.n_ensemble = 1
-            self.n_head = 1
-            self.output_positional_embedding = True    
-        elif self.note == 'Gransformer-2layers-bfsincpar':
-            self.n_layers = 2
-            self.n_grlayers = 0
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = True
-            self.k_graph_attention = 0
-            self.n_ensemble = 1
-            self.n_head = 1
-        elif self.note == 'Gransformer-4layers-2grlayers':
-            self.n_layers = 4
-            self.n_grlayers = 2
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = False
-            self.k_graph_attention = 0
-            self.n_ensemble = 1
-            self.n_head = 1
-        elif self.note == 'Gransformer-3layers-1grlayer':
-            self.n_layers = 3
-            self.n_grlayers = 1
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = False
-            self.k_graph_attention = 0
-            self.n_ensemble = 1
-            self.n_head = 1
-        elif self.note == 'Gransformer-2layers-1grlayer':
-            self.n_layers = 2
-            self.n_grlayers = 1
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = False
-            self.k_graph_attention = 0
-            self.n_ensemble = 1
-            self.n_head = 1
-        elif self.note == 'Gransformer-gattk4':
-            self.n_layers = 2
-            self.n_grlayers = 0
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = False
-            self.k_graph_attention = 0
-            self.n_ensemble = 1
-            self.n_head = 1
-            self.k_graph_attention = 4
-        elif self.note == 'Gransformer-gattk4norm':
-            self.n_layers = 2
-            self.n_grlayers = 0
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = False
-            self.n_ensemble = 1
-            self.n_head = 1
-            self.k_graph_attention = 4
-            self.normalize_graph_attention = True
-        elif self.note == 'Gransformer-gattk4-bfsincpar':
-            self.n_layers = 2
-            self.n_grlayers = 0
-            self.node_ordering = 'bfs'
-            self.use_max_prev_node = False
-            self.use_bfs_incremental_parent_idx = True
-            self.n_ensemble = 1
-            self.n_head = 1
-            self.k_graph_attention = 4
-        else:
-            raise Exception('Unknown note')
+        # self.n_grlayers = 0
+        # self.node_ordering = 'bfs'
+        # self.use_max_prev_node = False
+        # self.use_bfs_incremental_parent_idx = False
+        # self.k_graph_attention = 0
+        # self.normalize_graph_attention = False
+        # self.k_graph_positional_input = 0
+        # self.normalize_graph_positional_input = False
+        # self.n_ensemble = 1
+        # self.n_head = 1
+
+        self.note = 'Gransformer-2layers-grposenck4norm'
+
+        note_params = self.note.split('-')
+        for param in note_params[1:]:
+            if param.endswith('layers'):
+                self.n_layers = int(param[:-6])
+            elif param.endswith('layer'):
+                self.n_layers = int(param[:-5])
+            elif param.endswith('grlayers'):
+                self.n_grlayers = int(param[:-8])
+            elif param.endswith('grlayer'):
+                self.n_grlayers = int(param[:-7])
+            elif param == 'posoutput':
+                self.output_positional_embedding = True
+            elif param == 'bfsincpar':
+                self.use_bfs_incremental_parent_idx = True
+            elif param.startswith('gattk'):
+                if param.endswith('norm'):
+                    self.k_graph_attention = int(param[5:-4])
+                    self.normalize_graph_attention = True
+                else:
+                    self.k_graph_attention = int(param[5:])
+            elif param.startswith('grposenck'):
+                if param.endswith('norm'):
+                    self.k_graph_positional_encoding = int(param[9:-4])
+                    self.normalize_graph_positional_encoding = True
+                else:
+                    self.k_graph_positional_encoding = int(param[9:])
+
 
         ### filenames to save intemediate and final outputs
         # self.fname = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
