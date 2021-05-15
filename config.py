@@ -168,8 +168,12 @@ class Args():
         # self.normalize_graph_positional_input = False
         # self.n_ensemble = 1
         # self.n_head = 1
+        # self.use_MADE = False
+        # self.MADE_num_masks = 3
+        # self.MADE_natural_ordering = False
+        # self.MADE_num_hidden_layers = 1
 
-        self.note = 'Gransformer-2layers-gattk4batchnorm-grposenck4batchnorm'
+        self.note = 'Gransformer-2layers-gattk4batchnorm-grposenck4batchnorm-MADEhl2msk3natuord1'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
@@ -207,6 +211,19 @@ class Args():
                 self.n_head = int(param[5:])
             elif param.endswith('nensemble'):
                 self.n_ensemble = int(param[9:])
+            elif param.startswith('MADE'):
+                self.use_MADE = True
+                assert param[4:6] == 'hl'
+                self.MADE_num_hidden_layers = int(param[6])
+                assert param[7:10] == 'msk'
+                if param[11:18] == 'natuord':
+                    self.MADE_num_masks = int(param[10])
+                    self.MADE_natural_ordering = bool(param[18])
+                elif param[12:19] == 'natuord':
+                    self.MADE_num_masks = int(param[10:12])
+                    self.MADE_natural_ordering = bool(param[19])
+                else:
+                    raise Exception('Unknown note')
             else:
                 raise Exception('Unknown note')
 

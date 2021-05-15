@@ -323,17 +323,16 @@ class Transformer(nn.Module):
 
             sz_in = d_model * n_ensemble
 
-            if args.use_MADE:       ############# remove ###
-                sz_in_new = 40
+            if args.use_MADE:
+                sz_in_new = max(sz_out // 10, 10)
                 self.before_trg_word_MADE = nn.Linear(sz_in, sz_in_new)
                 sz_in = sz_in_new
                 # self.before_MADE_norm = nn.LayerNorm(sz_in, eps=1e-6)
-                
+
             if args.output_positional_embedding:
                 sz_in = sz_in + args.max_seq_len
 
             sz_intermed = max(sz_in, sz_out)
-
 
             if args.use_MADE:
                 hidden_sizes = [sz_intermed * 3 // 2] * args.MADE_num_hidden_layers
@@ -431,10 +430,11 @@ class Transformer(nn.Module):
         if self.args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
             if self.args.output_positional_embedding:
-                dec_output = torch.cat([dec_output, outputPositionalEncoding(dec_output)], dim=2)
+                dec_output = torch.cat([outputPositionalEncoding(dec_output), dec_output], dim=2)
 
         if self.args.use_MADE:
-            # dec_output = self.before_MADE_norm( self.before_trg_word_MADE(dec_output))   ########### remove ###
+            # dec_output = self.before_MADE_norm( self.before_trg_word_MADE(dec_output))
+            dec_output = torch.sigmoid( self.before_trg_word_MADE(dec_output))
             seq_logit = self.trg_word_MADE(torch.cat([dec_output, gold], dim=2))
         else:
             # seq_logit = self.trg_word_prj(dec_output)
