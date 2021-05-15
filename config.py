@@ -86,8 +86,10 @@ class Args():
             assert self.node_ordering in ['bfs']
         self.k_graph_attention = 0 # 4
         self.normalize_graph_attention = False  # True #
+        self.batchnormalize_graph_attention = False # True #
         self.k_graph_positional_encoding = 0 # 4
         self.normalize_graph_positional_encoding = False # True #
+        self.batchnormalize_graph_positional_encoding = False # True #
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0
@@ -157,12 +159,17 @@ class Args():
         # self.use_bfs_incremental_parent_idx = False
         # self.k_graph_attention = 0
         # self.normalize_graph_attention = False
+        # self.batchnormalize_graph_attention = False
+        # self.k_graph_positional_encoding = 0
+        # self.normalize_graph_positional_encoding = False
+        # self.batchnormalize_graph_positional_encoding = False
+        # self.normalize_graph_attention = False
         # self.k_graph_positional_input = 0
         # self.normalize_graph_positional_input = False
         # self.n_ensemble = 1
         # self.n_head = 1
 
-        self.note = 'Gransformer-2layers-grposenck4norm'
+        self.note = 'Gransformer-2layers-gattk4batchnorm-grposenck4batchnorm'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
@@ -179,17 +186,29 @@ class Args():
             elif param == 'bfsincpar':
                 self.use_bfs_incremental_parent_idx = True
             elif param.startswith('gattk'):
-                if param.endswith('norm'):
+                if param.endswith('batchnorm'):
+                    self.k_graph_attention = int(param[5:-9])
+                    self.batchnormalize_graph_attention = True
+                elif param.endswith('norm'):
                     self.k_graph_attention = int(param[5:-4])
                     self.normalize_graph_attention = True
                 else:
                     self.k_graph_attention = int(param[5:])
             elif param.startswith('grposenck'):
-                if param.endswith('norm'):
+                if param.endswith('batchnorm'):
+                    self.k_graph_positional_encoding = int(param[9:-9])
+                    self.batchnormalize_graph_positional_encoding = True
+                elif param.endswith('norm'):
                     self.k_graph_positional_encoding = int(param[9:-4])
                     self.normalize_graph_positional_encoding = True
                 else:
                     self.k_graph_positional_encoding = int(param[9:])
+            elif param.endswith('nhead'):
+                self.n_head = int(param[5:])
+            elif param.endswith('nensemble'):
+                self.n_ensemble = int(param[9:])
+            else:
+                raise Exception('Unknown note')
 
 
         ### filenames to save intemediate and final outputs

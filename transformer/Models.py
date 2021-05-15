@@ -73,12 +73,18 @@ class GraphPositionalEncoding(nn.Module):
             k_gr_kernel = 2 * args.k_graph_positional_encoding + 1
         else:
             k_gr_kernel = args.k_graph_positional_encoding + 1
+        self.batchnorm = args.batchnormalize_graph_positional_encoding
+        if self.batchnorm:
+            self.layer_norm = nn.LayerNorm(k_gr_kernel, eps=1e-6)
         self.linear_1 = nn.Linear(k_gr_kernel, k_gr_kernel, bias=True)
         self.linear_2 = nn.Linear(k_gr_kernel, 1, bias=True)
         self.prj = nn.Linear(args.max_num_node + 1, d_hid, bias = True)
 
     def forward(self, x, gr_kernel):
-        gr_pos_enc = torch.sigmoid(self.linear_2(F.relu(self.linear_1(gr_kernel.transpose(-3, -2).transpose(-2,-1)))))
+        input = gr_kernel.transpose(-3, -2).transpose(-2,-1)
+        if self.batchnorm:
+            input = self.layer_norm(input)
+        gr_pos_enc = torch.sigmoid(self.linear_2(F.relu(self.linear_1(input))))
         gr_pos_enc_prj = self.prj(gr_pos_enc.squeeze(-1))
         if len(x.size()) == 4:
             gr_pos_enc_prj = gr_pos_enc_prj.unsqueeze(2)
@@ -132,7 +138,8 @@ class Encoder(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=k_graph_attention, dropout=dropout)
+            EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=k_graph_attention,
+                         gr_att_batchnorm=args.batchnormalize_graph_attention ,dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
@@ -222,7 +229,8 @@ class Decoder(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
         self.layer_stack = nn.ModuleList([
-            DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=k_graph_attention, dropout=dropout)
+            DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att=k_graph_attention,
+                         gr_att_batchnorm=args.batchnormalize_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb

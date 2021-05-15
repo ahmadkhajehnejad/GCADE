@@ -63,7 +63,8 @@ __author__ = "Yu-Hsiang Huang"
 class EnsembleMultiHeadAttention(nn.Module):
     '''Ensemble  Multi-Head Attention module '''
 
-    def __init__(self, n_ensemble_q, n_ensemble_k, n_head, d_model, d_k, d_v, k_gr_att=0, dropout=0.1, attn_dropout=0.1):
+    def __init__(self, n_ensemble_q, n_ensemble_k, n_head, d_model, d_k, d_v, k_gr_att=0,
+                 gr_att_batchnorm=False, dropout=0.1, attn_dropout=0.1):
         super().__init__()
 
         self.n_head = n_head
@@ -74,7 +75,11 @@ class EnsembleMultiHeadAttention(nn.Module):
         self.n_ensemble_q = n_ensemble_q
         self.n_ensemble_k = n_ensemble_k
 
+        self.gr_att_batchnorm = gr_att_batchnorm
+
         if k_gr_att > 0:
+            if self.gr_att_batchnorm:
+                self.gr_att_layer_norm = nn.LayerNorm(k_gr_att, eps=1e-6)
             self.gr_att_linear_list_1 = nn.ModuleList([
                 nn.Linear(k_gr_att, k_gr_att, bias=True)
                 for _ in range(n_ensemble_q * n_ensemble_k * n_head)
@@ -168,7 +173,10 @@ class EnsembleMultiHeadAttention(nn.Module):
                         for h in range(self.n_head):
                             gr_att_linear_1 = self.gr_att_linear_list_1[i * n_ensemble_k * n_head + j * n_head + h]
                             gr_att_linear_2 = self.gr_att_linear_list_2[i * n_ensemble_k * n_head + j * n_head + h]
-                            gr_mask_agg = gr_att_linear_2(F.relu(gr_att_linear_1(gr_mask.transpose(1,2).transpose(2,3))))   #  sz_b * k_gr_attr * len_k * len_q ---> sz_b * 1 * len_k * len_q
+                            tmp = gr_mask.transpose(1,2).transpose(2,3)
+                            if self.gr_att_batchnorm:
+                                tmp = self.gr_att_layer_norm(tmp)
+                            gr_mask_agg = gr_att_linear_2(F.relu(gr_att_linear_1(tmp)))   #  sz_b * k_gr_attr * len_k * len_q ---> sz_b * 1 * len_k * len_q
                             gr_mask_agg = gr_mask_agg.squeeze(-1)
                             # attn_[:,h,:,:] = attn_[:,h,:,:] + gr_mask_agg
                             attn_[:,h,:,:] = attn_[:,h,:,:] + torch.log(torch.sigmoid(gr_mask_agg))

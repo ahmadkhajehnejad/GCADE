@@ -10,9 +10,10 @@ __author__ = "Yu-Hsiang Huang"
 class EncoderLayer(nn.Module):
     ''' Compose with two layers '''
 
-    def __init__(self, d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att, dropout=0.1):
+    def __init__(self, d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att, gr_att_batchnorm, dropout=0.1):
         super(EncoderLayer, self).__init__()
-        self.slf_attn = EnsembleMultiHeadAttention(n_ensemble, n_ensemble, n_head, d_model, d_k, d_v, k_gr_att, dropout=dropout)
+        self.slf_attn = EnsembleMultiHeadAttention(n_ensemble, n_ensemble, n_head, d_model, d_k, d_v, k_gr_att,
+                                                   gr_att_batchnorm, dropout=dropout)
         self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout)
 
     def forward(self, enc_input, slf_attn_mask=None, gr_mask=None):
@@ -25,10 +26,12 @@ class EncoderLayer(nn.Module):
 class DecoderLayer(nn.Module):
     ''' Compose with three layers '''
 
-    def __init__(self, d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att, dropout=0.1):
+    def __init__(self, d_model, d_inner, n_ensemble, n_head, d_k, d_v, k_gr_att, gr_att_batchnorm, dropout=0.1):
         super(DecoderLayer, self).__init__()
-        self.slf_attn = EnsembleMultiHeadAttention(n_ensemble, n_ensemble, n_head, d_model, d_k, d_v, k_gr_att, dropout=dropout)
-        self.enc_attn = EnsembleMultiHeadAttention(n_ensemble, n_ensemble, n_head, d_model, d_k, d_v, k_gr_att, dropout=dropout)
+        self.slf_attn = EnsembleMultiHeadAttention(n_ensemble, n_ensemble, n_head, d_model, d_k, d_v, k_gr_att,
+                                                   gr_att_batchnorm, dropout=dropout)
+        self.enc_attn = EnsembleMultiHeadAttention(n_ensemble, n_ensemble, n_head, d_model, d_k, d_v, k_gr_att,
+                                                   gr_att_batchnorm, dropout=dropout)
         self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout)
 
     def forward(
