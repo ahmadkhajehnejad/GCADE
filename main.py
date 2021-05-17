@@ -330,6 +330,8 @@ def generate_graph(gg_model, args):
         adj = torch.zeros((args.test_batch_size, args.max_seq_len, args.max_seq_len), dtype=torch.float32).to(
             args.device)
 
+        if args.estimate_num_nodes:
+            len_gen = np.random.choice(np.arange(1,args.max_num_node + 1), args.test_batch_size, True, gg_model.num_nodes_prob[1:])
         not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
         for i in range(args.max_seq_len - 1):
             if args.use_bfs_incremental_parent_idx:
@@ -354,16 +356,19 @@ def generate_graph(gg_model, args):
                         if args.use_max_prev_node and i > args.max_prev_node and j > 0 and j < i - args.max_prev_node + 1:
                             gold[remainder_idx, j] = args.dontcare_input
                         else:
-                            tmp = (torch.rand([remainder_idx.sum().item()], device=args.device) < pred_probs[
-                                remainder_idx,
-                                i, j]).float()
-                            ind_0 = tmp == 0
-                            ind_1 = tmp == 1
-                            tmp[ind_0] = args.zero_input
-                            tmp[ind_1] = args.one_input
-                            if args.use_bfs_incremental_parent_idx:
-                                tmp[min_par_idx[remainder_idx, j]] = args.zero_input
-                            gold[:, j] = tmp
+                            if j == 0 and args.estimate_num_nodes:
+                                gold[:,0] = args.zero_input
+                            else:
+                                tmp = (torch.rand([remainder_idx.sum().item()], device=args.device) < pred_probs[
+                                    remainder_idx,
+                                    i, j]).float()
+                                ind_0 = tmp == 0
+                                ind_1 = tmp == 1
+                                tmp[ind_0] = args.zero_input
+                                tmp[ind_1] = args.one_input
+                                if args.use_bfs_incremental_parent_idx:
+                                    tmp[min_par_idx[remainder_idx, j]] = args.zero_input
+                                gold[:, j] = tmp
                         if j < i:
                             tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], gold], dim=1))
                             if gg_model.scale_prj:
@@ -374,6 +379,8 @@ def generate_graph(gg_model, args):
                 else:
                     tmp = (torch.rand([remainder_idx.sum().item(), i + 1], device=args.device) < pred_probs[remainder_idx,
                                                                                          i, :i + 1]).float()
+                    if args.estimate_num_nodes:
+                        tmp[:, 0] = 0
                     ind_0 = tmp == 0
                     ind_1 = tmp == 1
                     tmp[ind_0] = args.zero_input
@@ -390,13 +397,20 @@ def generate_graph(gg_model, args):
                     print('   reached max_num_gen_trials   dim:', i, '   num remainder:', remainder_idx.detach().cpu().sum().item())
                     src_seq[remainder_idx, i+1, 0] = args.one_input
                     remainder_idx[:] = False
-            new_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] == args.one_input)
+            if args.estimate_num_nodes:
+                new_finished_idx = torch.tensor(len_gen == i).to(args.device)
+                src_seq[new_finished_idx, i+1, 0] = args.one_input
+            else:
+                new_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] == args.one_input)
             src_seq[new_finished_idx, i + 1, 1:] = args.src_pad_idx
             if i > 0 and args.use_bfs_incremental_parent_idx:
                 tmp = src_seq[not_finished_idx, i + 1, :] == args.one_input
                 min_par_idx[not_finished_idx, :] = tmp.cumsum(dim=1) == 0
                 min_par_idx[not_finished_idx, 0] = False
-            not_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] != args.one_input)
+            if args.estimate_num_nodes:
+                not_finished_idx = not_finished_idx & torch.tensor(len_gen > i).to(args.device)
+            else:
+                not_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] != args.one_input)
             # if num_trials > 1:
             #     print('                          ', i, '      num of trials:', num_trials)
             if not_finished_idx.sum().item() == 0:
@@ -433,6 +447,18 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
     ## initialize optimizer
     ## optimizer = torch.optim.Adam(list(gcade_model.parameters()), lr=args.lr)
     ## scheduler = MultiStepLR(optimizer, milestones=args.milestones, gamma=args.lr_rate)
+
+    if args.estimate_num_nodes:
+        print('estimation of num_nodes_prob started')
+        gg_model.num_nodes_prob = np.zeros(args.max_num_node + 1)
+        for epoch in range(10):
+            for data in dataset_train:
+                adj = data['adj'].to(args.device)
+                for a in adj:
+                    idx = a.sum(dim=0).bool().sum().item()
+                    gg_model.num_nodes_prob[idx] += 1
+        gg_model.num_nodes_prob = gg_model.num_nodes_prob / gg_model.num_nodes_prob.sum()
+        print('estimation of num_nodes_prob finished')
 
     # start main loop
     time_all = np.zeros(args.epochs)

@@ -125,6 +125,7 @@ class Args():
         self.n_grlayers = 0
         assert self.n_grlayers <= self.n_layers
         assert self.n_grlayers == 0 or self.k_graph_attention == 0
+        self.estimate_num_nodes = False # True #
         self.n_head = 1 # 8
         self.ensemble_input_type = 'repeat' # 'multihop-single' # 'negative' # 'multihop' #
         if self.ensemble_input_type == 'negative':
@@ -166,6 +167,7 @@ class Args():
         # self.normalize_graph_attention = False
         # self.k_graph_positional_input = 0
         # self.normalize_graph_positional_input = False
+        # self.estimate_num_nodes = False
         # self.n_ensemble = 1
         # self.n_head = 1
         # self.use_MADE = False
@@ -173,7 +175,7 @@ class Args():
         # self.MADE_natural_ordering = False
         # self.MADE_num_hidden_layers = 1
 
-        self.note = 'Gransformer-2layers-gattk4batchnorm-grposenck4batchnorm-MADEhl2msk3natuord1'
+        self.note = 'Gransformer-2layers-estnumnodes'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
@@ -224,6 +226,8 @@ class Args():
                     self.MADE_natural_ordering = bool(param[19])
                 else:
                     raise Exception('Unknown note')
+            elif param == 'estnumnodes':
+                self.estimate_num_nodes = True
             else:
                 raise Exception('Unknown note')
 

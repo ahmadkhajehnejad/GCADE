@@ -280,6 +280,8 @@ class Transformer(nn.Module):
 
         super().__init__()
 
+        if args.estimate_num_nodes:
+            self.num_nodes_prob = None
         self.src_pad_idx, self.trg_pad_idx = src_pad_idx, trg_pad_idx
         self.args = args
 
