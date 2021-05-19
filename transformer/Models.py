@@ -382,8 +382,19 @@ class Transformer(nn.Module):
             gr_kernel = torch.zeros(adj.size(0), k_gr + 1, adj.size(1), adj.size(2)).to(self.args.device)
             gr_kernel[:, 0, :, :] = torch.eye(adj.size(1)).to(self.args.device).unsqueeze(0).repeat(adj.size(0) ,1 ,1)
             gr_kernel[:, 1, :, :] = torch.triu(adj)
+            adj_sparse = adj.to_sparse()
+            bias = adj_sparse.indices()[0] * adj.shape[1]
+            ind_1 = (bias + adj_sparse.indices()[1]).cpu().numpy()
+            ind_2 = (bias + adj_sparse.indices()[2]).cpu().numpy()
+            adj_sparse_2D = torch.sparse_coo_tensor([ind_1, ind_2], adj_sparse.values(), [adj.size(0) * adj.size(1),
+                                                                                          adj.size(0) * adj.size(2)])
             for i in range(2, k_gr + 1):
-                gr_kernel[:, i, :, :] = torch.triu(torch.matmul(adj, gr_kernel[:, i-1, :, :]))
+                sz = gr_kernel.size()
+                tmp = torch.sparse.mm(adj_sparse_2D, gr_kernel[:, i-1, :, :].reshape(sz[0] * sz[2], sz[3]))
+                gr_kernel[:, i, :, :] = torch.triu(tmp.reshape(sz[0], sz[2], sz[3]))
+
+                # gr_2 = torch.triu(torch.matmul(adj, gr_kernel[:, i-1, :, :]))
+                # print('*****   ', torch.any(gr_2 == gr_kernel[:,i,:,:]))
 
             gr_kernel = torch.transpose(gr_kernel, 2, 3)
             if self.args.normalize_graph_attention or self.args.normalize_graph_positional_encoding:

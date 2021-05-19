@@ -177,7 +177,8 @@ class Args():
         # self.MADE_natural_ordering = False
         # self.MADE_num_hidden_layers = 1
 
-        self.note = 'Gransformer-6layers-estnumnodes-nomodellayernorm'
+        # self.note = 'Gransformer-6layers-estnumnodes-nomodellayernorm'
+        self.note = 'Gransformer-6layers-gattk4-nomodellayernorm'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
@@ -250,4 +251,3 @@ class Args():
         #     self.hidden_size_rnn) + '_test_'
         self.fname_test = self.note.split('-')[0] + '_' + self.graph_type + '_' + self.input_type + '_test_'
         # self.fname_baseline = self.graph_save_path + self.graph_type + self.generator_baseline + '_' + self.metric_baseline
-
