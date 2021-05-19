@@ -63,14 +63,15 @@ __author__ = "Yu-Hsiang Huang"
 class EnsembleMultiHeadAttention(nn.Module):
     '''Ensemble  Multi-Head Attention module '''
 
-    def __init__(self, n_ensemble_q, n_ensemble_k, n_head, d_model, d_k, d_v, k_gr_att=0,
-                 gr_att_batchnorm=False, dropout=0.1, attn_dropout=0.1):
+    def __init__(self, n_ensemble_q, n_ensemble_k, n_head, d_model, d_k, d_v, no_layer_norm,
+                 k_gr_att=0, gr_att_batchnorm=False, dropout=0.1, attn_dropout=0.1):
         super().__init__()
 
         self.n_head = n_head
         self.d_k = d_k
         self.d_v = d_v
         self.d_model = d_model
+        self.no_layer_norm = no_layer_norm
 
         self.n_ensemble_q = n_ensemble_q
         self.n_ensemble_k = n_ensemble_k
@@ -79,7 +80,7 @@ class EnsembleMultiHeadAttention(nn.Module):
 
         if k_gr_att > 0:
             if self.gr_att_batchnorm:
-                self.gr_att_layer_norm = nn.LayerNorm(k_gr_att, eps=1e-6)
+                self.gr_att_layer_norm = nn.LayerNorm(k_gr_att, eps=1e-3)
             self.gr_att_linear_list_1 = nn.ModuleList([
                 nn.Linear(k_gr_att, k_gr_att, bias=True)
                 for _ in range(n_ensemble_q * n_ensemble_k * n_head)
@@ -111,7 +112,8 @@ class EnsembleMultiHeadAttention(nn.Module):
         # self.attention = EnsembleScaledDotProductAttention(temperature=d_k ** 0.5)
 
         self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        if not no_layer_norm:
+            self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
 
     def forward(self, q, k, v, mask=None, gr_mask=None):
@@ -210,7 +212,8 @@ class EnsembleMultiHeadAttention(nn.Module):
         # if residual.size(2) == 1:
         #     residual = residual.repeat(1,1,n_ensemble_q,1)
         output += residual
-        output = self.layer_norm(output)
+        if not self.no_layer_norm:
+            output = self.layer_norm(output)
 
         return output, None # returns None for attn
 
@@ -218,11 +221,13 @@ class EnsembleMultiHeadAttention(nn.Module):
 class PositionwiseFeedForward(nn.Module):
     ''' A two-feed-forward-layer module '''
 
-    def __init__(self, d_in, d_hid, dropout=0.1):
+    def __init__(self, d_in, d_hid, no_layer_norm, dropout=0.1):
         super().__init__()
         self.w_1 = nn.Linear(d_in, d_hid) # position-wise
         self.w_2 = nn.Linear(d_hid, d_in) # position-wise
-        self.layer_norm = nn.LayerNorm(d_in, eps=1e-6)
+        self.no_layer_norm = no_layer_norm
+        if not no_layer_norm:
+            self.layer_norm = nn.LayerNorm(d_in, eps=1e-6)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
@@ -233,7 +238,8 @@ class PositionwiseFeedForward(nn.Module):
         x = self.dropout(x)
         x += residual
 
-        x = self.layer_norm(x)
+        if not self.no_layer_norm:
+            x = self.layer_norm(x)
 
         return x
 

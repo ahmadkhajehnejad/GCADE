@@ -123,6 +123,7 @@ class Args():
         self.d_v = 2 * 4 * 50 # 64
         self.n_layers = 2 # 6
         self.n_grlayers = 0
+        self.no_model_layer_norm = False # True #
         assert self.n_grlayers <= self.n_layers
         assert self.n_grlayers == 0 or self.k_graph_attention == 0
         self.estimate_num_nodes = False # True #
@@ -170,12 +171,13 @@ class Args():
         # self.estimate_num_nodes = False
         # self.n_ensemble = 1
         # self.n_head = 1
+        # self.no_model_layer_norm = False
         # self.use_MADE = False
         # self.MADE_num_masks = 3
         # self.MADE_natural_ordering = False
         # self.MADE_num_hidden_layers = 1
 
-        self.note = 'Gransformer-2layers-estnumnodes'
+        self.note = 'Gransformer-2layers-estnumnodes-nomodellayernorm'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
@@ -228,6 +230,8 @@ class Args():
                     raise Exception('Unknown note')
             elif param == 'estnumnodes':
                 self.estimate_num_nodes = True
+            elif param == 'nomodellayernorm':
+                self.no_model_layer_norm = True
             else:
                 raise Exception('Unknown note')
 
