@@ -35,7 +35,7 @@ class ScheduledOptim():
         self.n_steps += 1
         # lr = self.lr_mul * self._get_lr_scale()
  
-        lr = 0.001
+        lr = 0.0002
         
         '''
         if self.n_steps < 25 * 25:
