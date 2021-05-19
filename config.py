@@ -177,7 +177,7 @@ class Args():
         # self.MADE_natural_ordering = False
         # self.MADE_num_hidden_layers = 1
 
-        self.note = 'Gransformer-2layers-estnumnodes-nomodellayernorm'
+        self.note = 'Gransformer-6layers-estnumnodes-nomodellayernorm'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
