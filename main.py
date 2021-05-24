@@ -323,9 +323,19 @@ def generate_graph(gg_model, args):
                                  for probs in pred_probs]).view([args.test_batch_size, args.max_seq_len]).to(args.device)
             src_seq[:, i + 1] = pred[:, i]
     elif args.input_type == 'preceding_neighbors_vector':
-        src_seq = args.src_pad_idx * torch.ones((args.test_batch_size, args.max_seq_len, args.max_num_node + 1),
-                                  dtype=torch.float32).to(args.device)
+        # src_seq = args.src_pad_idx * torch.ones((args.test_batch_size, args.max_seq_len, args.max_num_node + 1),
+        #                                        dtype=torch.float32).to(args.device)
+        src_seq = args.dontcare_input * torch.ones((args.test_batch_size, args.max_seq_len, args.max_num_node + 1),
+                                                   dtype=torch.float32).to(args.device)
+        src_seq[:, 0, :] = args.src_pad_idx
+        for i in range(1,args.max_seq_len):
+            src_seq[:, i, :i] = args.zero_input
 
+        gold_seq = args.dontcare_input * torch.ones((args.test_batch_size, args.max_seq_len, args.max_num_node + 1),
+                                                    dtype=torch.float32).to(args.device)
+        gold_seq[:, -1, :] = args.trg_pad_idx
+        for i in range(args.max_seq_len - 1):
+            gold_seq[:, i, :i+1] = args.zero_input
 
         adj = torch.zeros((args.test_batch_size, args.max_seq_len, args.max_seq_len), dtype=torch.float32).to(
             args.device)
@@ -333,70 +343,82 @@ def generate_graph(gg_model, args):
         if args.estimate_num_nodes:
             len_gen = np.random.choice(np.arange(1,args.max_num_node + 1), args.test_batch_size, True, gg_model.num_nodes_prob[1:])
         not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
+
+        if args.use_bfs_incremental_parent_idx:
+            min_par_idx = torch.zeros(src_seq.size(0), src_seq.size(2), dtype=torch.int32).bool().to(args.device)
+
         for i in range(args.max_seq_len - 1):
-            if args.use_bfs_incremental_parent_idx:
-                min_par_idx = torch.zeros(src_seq.size(0), src_seq.size(2), dtype=torch.int32).bool().to(args.device)
 
-            tmp, dec_output = gg_model(src_seq, src_seq, src_seq, adj)
+
+            tmp, dec_output = gg_model(src_seq[not_finished_idx], src_seq[not_finished_idx], gold_seq[not_finished_idx],
+                                       adj[not_finished_idx])
             pred_probs = torch.sigmoid(tmp).view(-1, args.max_seq_len, args.max_num_node + 1)
-            # if args.use_max_prev_node and i > args.max_prev_node:
-            #     pred_probs[:, i, 1:i - args.max_prev_node + 1] = 0
-            # if args.use_bfs_incremental_parent_idx:
-            #     for j in range(pred_probs.size(0)):
-            #         pred_probs[j, i, 1:min_par_idx[j]] = 0
-            num_trials = 0
-            remainder_idx = not_finished_idx.clone()
-            src_seq[remainder_idx, i+1, i+1:] = args.dontcare_input
-            while remainder_idx.sum().item() > 0:
-                num_trials += 1
 
-                if args.use_MADE:
-                    gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2)).to(args.device)
-                    for j in range(i + 1):
-                        if args.use_max_prev_node and i > args.max_prev_node and j > 0 and j < i - args.max_prev_node + 1:
-                            gold[remainder_idx, j] = args.dontcare_input
-                        else:
-                            if j == 0 and args.estimate_num_nodes:
-                                gold[:,0] = args.zero_input
-                            else:
-                                tmp = (torch.rand([remainder_idx.sum().item()], device=args.device) < pred_probs[
-                                    remainder_idx,
-                                    i, j]).float()
-                                ind_0 = tmp == 0
-                                ind_1 = tmp == 1
-                                tmp[ind_0] = args.zero_input
-                                tmp[ind_1] = args.one_input
-                                if args.use_bfs_incremental_parent_idx:
-                                    tmp[min_par_idx[remainder_idx, j]] = args.zero_input
-                                gold[:, j] = tmp
-                        if j < i:
-                            tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], gold], dim=1))
-                            if gg_model.scale_prj:
-                                tmp *= gg_model.d_model ** -0.5
-                            pred_probs[remainder_idx, i, :] = torch.sigmoid(tmp)
+            if args.use_bfs_incremental_parent_idx:
+                zero_logprob = torch.zeros(not_finished_idx.sum().item()).to(args.device)
+                for j in range(not_finished_idx.sum().item()):
+                    zero_logprob[j] = torch.log(torch.max(1 - pred_probs[j, i, :][min_par_idx[not_finished_idx][j]],
+                                                          torch.tensor([1e-9]).to(args.device))).sum()
+                if i > 1 and src_seq[not_finished_idx][0, i, 1] != args.one_input:
+                    print('@ ', i, min_par_idx[not_finished_idx][0])
+                    print(src_seq[not_finished_idx][0, i ,:])
+                    print('\n', pred_probs[0, i, :])
+                    print('\n', pred_probs[j, i, :][min_par_idx[not_finished_idx][j]])
+                    input()
+            elif args.use_max_prev_node and i >= args.max_prev_node:
+                zero_logprob = torch.log(torch.max(1 - pred_probs[:, i, i - args.max_prev_node + 1: i + 1],
+                                                   torch.tensor([1e-9]).to(args.device))).sum(dim=1)
 
-                    src_seq[remainder_idx, i + 1, :i + 1] = gold[:, :i+1]
+                print('@@ ', i, args.max_prev_node)
+                print('\n', pred_probs[0, i, :])
+                print('\n', pred_probs[0, i, i - args.max_prev_node + 1: i + 1])
+                input()
+            else:
+                zero_logprob = torch.log(torch.max(1 - pred_probs[:, i, 1: i + 1],
+                                                   torch.tensor([1e-9]).to(args.device))).sum(dim=1)
+                print('@@@ ', i)
+                print('\n', pred_probs[0, i, :])
+                print('\n', torch.max(1 - pred_probs[0, i, 1: i + 1],
+                                                   torch.tensor([1e-9]).to(args.device)))
+                input()
+            zero_logprob = zero_logprob + torch.log(torch.max(1 - pred_probs[:, i, 0],
+                                                              torch.tensor([1e-9]).to(args.device)))
+            zero_prob = torch.exp(zero_logprob)
+
+            # src_seq[not_finished_idx, i + 1, i + 1:] = args.dontcare_input
+            gold = args.dontcare_input * torch.ones(not_finished_idx.sum().item(), src_seq.size(2)).to(args.device)
+            still_zero_ind = torch.ones(not_finished_idx.sum().item()).bool().to(args.device)
+            subset_zero_prob = torch.ones(not_finished_idx.sum().item()).to(args.device)
+            for j in range(i + 1):
+                if args.use_max_prev_node and i > args.max_prev_node and j > 0 and j < i - args.max_prev_node + 1:
+                    gold[:, j] = args.dontcare_input
                 else:
-                    tmp = (torch.rand([remainder_idx.sum().item(), i + 1], device=args.device) < pred_probs[remainder_idx,
-                                                                                         i, :i + 1]).float()
-                    if args.estimate_num_nodes:
-                        tmp[:, 0] = 0
-                    ind_0 = tmp == 0
-                    ind_1 = tmp == 1
-                    tmp[ind_0] = args.zero_input
-                    tmp[ind_1] = args.one_input
-                    src_seq[remainder_idx, i + 1, :i + 1] = tmp
-                    if args.use_bfs_incremental_parent_idx:
-                        src_seq[remainder_idx, i+1,:][min_par_idx[remainder_idx, :]] = args.zero_input
-                    if args.use_max_prev_node and i > args.max_prev_node:
-                        src_seq[remainder_idx, i+1, 1:i - args.max_prev_node + 1] = args.dontcare_input
-                if i == 0:
-                    break
-                remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
-                if num_trials >= args.max_num_generate_trials:
-                    print('   reached max_num_gen_trials   dim:', i, '   num remainder:', remainder_idx.detach().cpu().sum().item())
-                    src_seq[remainder_idx, i+1, 0] = args.one_input
-                    remainder_idx[:] = False
+                    if j == 0 and args.estimate_num_nodes:
+                        gold[:, 0] = args.zero_input
+                        subset_zero_prob = subset_zero_prob * (1 - pred_probs[:, i, 0])
+                    else:
+                        q_pred = pred_probs[:, i, j].clone()
+                        q_pred[still_zero_ind] = q_pred[still_zero_ind] * zero_prob[still_zero_ind] / \
+                                                 (subset_zero_prob[still_zero_ind] - zero_prob[still_zero_ind])
+                        tmp = (torch.rand([not_finished_idx.sum().item()], device=args.device) < q_pred).float()
+                        ind_0 = tmp == 0
+                        ind_1 = tmp == 1
+                        tmp[ind_0] = args.zero_input
+                        tmp[ind_1] = args.one_input
+                        if args.use_bfs_incremental_parent_idx:
+                            tmp[min_par_idx[not_finished_idx, j]] = args.zero_input
+                        gold[:, j] = tmp
+                        ind_x = ind_0 & (~ min_par_idx[not_finished_idx, j])
+                        subset_zero_prob[ind_x] = subset_zero_prob[ind_x] * (1 - pred_probs[ind_x, i, j])
+                if args.use_MADE and j < i:
+                    tmp = gg_model.trg_word_MADE(torch.cat([dec_output[:, i, :], gold], dim=1))
+                    if gg_model.scale_prj:
+                        tmp *= gg_model.d_model ** -0.5
+                    pred_probs[:, i, :] = torch.sigmoid(tmp)
+
+            src_seq[not_finished_idx, i + 1, :i + 1] = gold[:, :i + 1]
+
+
             if args.estimate_num_nodes:
                 new_finished_idx = torch.tensor(len_gen == i).to(args.device)
                 src_seq[new_finished_idx, i+1, 0] = args.one_input
@@ -435,7 +457,7 @@ def generate_graph(gg_model, args):
     # save graphs as pickle
     G_pred_list = []
     for i in range(args.test_batch_size):
-        adj_pred = my_decode_adj(src_seq[i,1:].cpu().numpy(), args)
+        adj_pred = my_decode_adj(src_seq[i,1:].cpu().detach().numpy(), args)
         G_pred = utils.get_graph(adj_pred) # get a graph from zero-padded adj
         G_pred_list.append(G_pred)
 

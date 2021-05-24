@@ -5,13 +5,13 @@ class Args():
     def __init__(self):
 
         ### Which dataset is used to train the model
-        self.graph_type = 'DD'    ### protein
+        # self.graph_type = 'DD'    ### protein
         # self.graph_type = 'caveman'  ### Community ??
         # self.graph_type = 'caveman_small'
         # self.graph_type = 'caveman_small_single'
         # self.graph_type = 'community4'
         # self.graph_type = 'grid'
-        # self.graph_type = 'grid_small'
+        self.graph_type = 'grid_small'
         # self.graph_type = 'ladder_small'
 
         # self.graph_type = 'enzymes'
@@ -47,15 +47,15 @@ class Args():
 
         self.batch_size = 32 # 32  # normal: 32, and the rest should be changed accordingly
         self.test_batch_size = 50
-        self.test_total_size = 1000 # 1000
+        self.test_total_size = 50 # 1000 # 1000
 
         ### training config
         self.num_workers = 4  # num workers to load data, default 4
         self.batch_ratio = 32 * (32 // self.batch_size) # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epoch_train_start = 0
         self.epochs = 3002 # 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 750 # 100
-        self.epochs_test = 750 # 100
+        self.epochs_test_start = 20 # 750 # 100
+        self.epochs_test = 5 # 750 # 100
         self.epochs_log = 100
         self.epochs_save = 50
 
@@ -178,7 +178,7 @@ class Args():
         # self.MADE_num_hidden_layers = 1
 
         # self.note = 'Gransformer-6layers-estnumnodes-nomodellayernorm'
-        self.note = 'Gransformer-6layers-gattk4-nomodellayernorm'
+        self.note = 'Gransformer-6layers-bfsincpar-estnumnodes' # -gattk4batchnorm' # -gattk4-nomodellayernorm'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
