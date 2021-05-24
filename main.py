@@ -333,9 +333,9 @@ def generate_graph(gg_model, args):
         if args.estimate_num_nodes:
             len_gen = np.random.choice(np.arange(1,args.max_num_node + 1), args.test_batch_size, True, gg_model.num_nodes_prob[1:])
         not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
+        if args.use_bfs_incremental_parent_idx:
+            min_par_idx = torch.zeros(src_seq.size(0), src_seq.size(2), dtype=torch.int32).bool().to(args.device)
         for i in range(args.max_seq_len - 1):
-            if args.use_bfs_incremental_parent_idx:
-                min_par_idx = torch.zeros(src_seq.size(0), src_seq.size(2), dtype=torch.int32).bool().to(args.device)
 
             tmp, dec_output = gg_model(src_seq, src_seq, src_seq, adj)
             pred_probs = torch.sigmoid(tmp).view(-1, args.max_seq_len, args.max_num_node + 1)
