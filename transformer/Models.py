@@ -382,19 +382,49 @@ class Transformer(nn.Module):
             gr_kernel = torch.zeros(adj.size(0), k_gr + 1, adj.size(1), adj.size(2)).to(self.args.device)
             gr_kernel[:, 0, :, :] = torch.eye(adj.size(1)).to(self.args.device).unsqueeze(0).repeat(adj.size(0) ,1 ,1)
             gr_kernel[:, 1, :, :] = torch.triu(adj)
+
+            '''
             adj_sparse = adj.to_sparse()
             bias = adj_sparse.indices()[0] * adj.shape[1]
             ind_1 = (bias + adj_sparse.indices()[1]).cpu().numpy()
             ind_2 = (bias + adj_sparse.indices()[2]).cpu().numpy()
             adj_sparse_2D = torch.sparse_coo_tensor([ind_1, ind_2], adj_sparse.values(), [adj.size(0) * adj.size(1),
-                                                                                          adj.size(0) * adj.size(2)])
+                                                                                       adj.size(0) * adj.size(2)])
+            '''
             for i in range(2, k_gr + 1):
-                sz = gr_kernel.size()
-                tmp = torch.sparse.mm(adj_sparse_2D, gr_kernel[:, i-1, :, :].reshape(sz[0] * sz[2], sz[3]))
+                # sz = gr_kernel.size()
+                # tmp = torch.sparse.mm(adj_sparse_2D, gr_kernel[:, i-1, :, :].reshape(sz[0] * sz[2], sz[3]))
+                # gr_kernel[:, i, :, :] = torch.triu(tmp.reshape(sz[0], sz[2], sz[3]))
+
+                gr_kernel[:, i, :, :] = torch.triu(torch.matmul(adj, gr_kernel[:, i-1, :, :]))
+                # print('*****   ', torch.all(gr_2 == gr_kernel[:,i,:,:]))
+
+            '''
+            # gr_kernel_2 = torch.zeros(adj.size(0), k_gr + 1, adj.size(1), adj.size(2)).to(self.args.device)
+            # gr_kernel_2[:, 0, :, :] = torch.eye(adj.size(1)).to(self.args.device).unsqueeze(0).repeat(adj.size(0), 1, 1)
+            # gr_kernel_2[:, 1, :, :] = torch.triu(adj)
+            adj_sparse = adj.to_sparse()
+            ind_0, ind_1, ind_2 = adj_sparse.coalesce().indices()
+            assert torch.all(adj_sparse.coalesce().values() == 1).item()
+            sorted_zip = sorted(zip(ind_0.cpu().numpy().tolist(), ind_1.cpu().numpy().tolist(), ind_2.cpu().numpy().tolist()))
+            ind_0 = np.array([z[0] for z in sorted_zip])
+            ind_2 = np.array([z[2] for z in sorted_zip])
+
+            bias = ind_0 * adj.shape[1]
+            ind_2_biased = bias + ind_2
+            ind_cum = adj.sum(dim=2).reshape(-1).cumsum(dim=0).long() - 1
+
+            sz = gr_kernel.size()
+            for i in range(2, k_gr + 1):
+                tmp = gr_kernel[:, i - 1, :, :].reshape(sz[0] * sz[2], sz[3])[ind_2_biased, :]
+                tmp = tmp.cumsum(dim=0)
+                tmp = tmp[ind_cum, :]
+                tmp[ind_cum == -1, :] = 0
+                tmp[1:] = tmp[1:] - tmp[:-1]
                 gr_kernel[:, i, :, :] = torch.triu(tmp.reshape(sz[0], sz[2], sz[3]))
 
-                # gr_2 = torch.triu(torch.matmul(adj, gr_kernel[:, i-1, :, :]))
-                # print('*****   ', torch.any(gr_2 == gr_kernel[:,i,:,:]))
+            # print('*****   ', torch.all(gr_kernel_2 == gr_kernel), torch.min(gr_kernel_2 - gr_kernel), torch.max(gr_kernel_2 - gr_kernel))
+            '''
 
             gr_kernel = torch.transpose(gr_kernel, 2, 3)
             if self.args.normalize_graph_attention or self.args.normalize_graph_positional_encoding:

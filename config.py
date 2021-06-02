@@ -46,7 +46,7 @@ class Args():
 
 
         self.batch_size = 32 # 32  # normal: 32, and the rest should be changed accordingly
-        self.test_batch_size = 50
+        self.test_batch_size = 10 # 50
         self.test_total_size = 1000 # 1000
 
         ### training config
@@ -56,8 +56,8 @@ class Args():
         self.epochs = 3002 # 3000  # now one epoch means self.batch_ratio x batch_size
         self.epochs_test_start = 750 # 100
         self.epochs_test = 750 # 100
-        self.epochs_log = 100
-        self.epochs_save = 50
+        self.epochs_log = 740
+        self.epochs_save = 740
 
         # self.lr = 0.003 #0.003
         # self.milestones = [4000, 10000]
@@ -177,7 +177,7 @@ class Args():
         # self.MADE_natural_ordering = False
         # self.MADE_num_hidden_layers = 1
 
-        self.note = 'Gransformer-6layers-nomodellayernorm-estnumnodes' # -bfsincpar-gattk4batchnorm'
+        self.note = 'Gransformer-6layers-nomodellayernorm-estnumnodes-gattk16batchnorm' # -grposenck4batchnorm-bfsincpar'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:

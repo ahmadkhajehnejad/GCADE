@@ -175,11 +175,16 @@ class EnsembleMultiHeadAttention(nn.Module):
                         for h in range(self.n_head):
                             gr_att_linear_1 = self.gr_att_linear_list_1[i * n_ensemble_k * n_head + j * n_head + h]
                             gr_att_linear_2 = self.gr_att_linear_list_2[i * n_ensemble_k * n_head + j * n_head + h]
-                            tmp = gr_mask.transpose(1,2).transpose(2,3)
+
+                            gr_mask_agg = torch.zeros(gr_mask.size(0), gr_mask.size(2), gr_mask.size(3)).to(gr_mask.device)
+                            ind = mask[:, 0, :, :] == 1
+                            ind_tmp = ind.unsqueeze(-1).repeat(1,1,1,gr_mask.size(1))
+                            tmp = gr_mask.transpose(1,2).transpose(2,3)[ind_tmp].reshape(-1, gr_mask.size(1))
                             if self.gr_att_batchnorm:
                                 tmp = self.gr_att_layer_norm(tmp)
-                            gr_mask_agg = gr_att_linear_2(F.relu(gr_att_linear_1(tmp)))   #  sz_b * k_gr_attr * len_k * len_q ---> sz_b * 1 * len_k * len_q
-                            gr_mask_agg = gr_mask_agg.squeeze(-1)
+                            tmp_2 = gr_att_linear_2(F.relu(gr_att_linear_1(tmp))).reshape(-1)
+                            gr_mask_agg[ind] = tmp_2
+
                             # attn_[:,h,:,:] = attn_[:,h,:,:] + gr_mask_agg
                             attn_[:,h,:,:] = attn_[:,h,:,:] + torch.log(torch.sigmoid(gr_mask_agg))
                             # attn_[:,h,:,:] = attn_[:,h,:,:] * gr_mask_agg

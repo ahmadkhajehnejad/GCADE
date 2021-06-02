@@ -358,6 +358,15 @@ def generate_graph(gg_model, args):
             pred_probs = torch.sigmoid(tmp).view(-1, args.max_seq_len, args.max_num_node + 1)
 
             if args.use_bfs_incremental_parent_idx:
+
+                tmp_ind = ~min_par_idx[not_finished_idx]
+                tmp_ind[:, 0] = False
+                tmp_ind[:, i+1:] = False
+                zero_logprob = (torch.log(torch.max(1 - pred_probs[:, i, :],
+                                                    # torch.tensor([0]).to(args.device)
+                                                    torch.tensor([1e-9]).to(args.device))) * tmp_ind).sum(dim=1)
+
+                '''
                 zero_logprob = torch.zeros(not_finished_idx.sum().item()).to(args.device)
                 for j in range(not_finished_idx.sum().item()):
                     tmp_ind = ~ min_par_idx[not_finished_idx][j]
@@ -368,6 +377,7 @@ def generate_graph(gg_model, args):
                                                           torch.tensor([1e-9]).to(args.device))).sum()
                     # print('##', i, j, len_gen[not_finished_idx][j], tmp_ind, min_par_idx[not_finished_idx][j],
                     #       src_seq[not_finished_idx][j, :i+1, :])
+                '''
                 '''
                 if i > 1 and src_seq[not_finished_idx][0, i, 1] != args.one_input:
                     print('@ ', i, min_par_idx[not_finished_idx][0])
@@ -595,6 +605,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
         print('[epoch %d]     loss: %.3f     val: %.3f              lr: %f     avg_tr_loss: %f' %
               (epoch + 1, running_loss / trsz, val_running_loss / vlsz, optimizer._optimizer.param_groups[0]['lr'], np.mean(loss_buffer))) #get_lr(optimizer)))
         # print(list(gg_model.encoder.layer_stack[0].slf_attn.gr_att_linear_list[0].parameters()))
+        sys.stdout.flush()
         time_end = time.time()
         time_all[epoch - 1] = time_end - time_start
         # test
