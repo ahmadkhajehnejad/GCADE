@@ -437,12 +437,16 @@ class Transformer(nn.Module):
             if self.args.normalize_graph_attention:
                 gr_mask = gr_kernel_normalized[:, np.concatenate([np.arange(0, k_gr_att + 1),
                                                                   np.arange(k_gr, k_gr + k_gr_att)]), :, :]
+            elif self.args.log_graph_attention:
+                gr_mask = torch.log(gr_kernel[:, :k_gr_att + 1, :, :] + 1)
             else:
                 gr_mask = gr_kernel[:, :k_gr_att + 1, :, :]
 
             if self.args.normalize_graph_positional_encoding:
                 gr_pos_enc_kernel = gr_kernel_normalized[:, np.concatenate([np.arange(0, k_gr_pos_enc + 1),
                                                                             np.arange(k_gr, k_gr + k_gr_pos_enc)]), :, :]
+            elif self.args.log_graph_positional_encoding:
+                gr_pos_enc_kernel = torch.log(gr_kernel[:, :k_gr_pos_enc + 1, :, :] + 1)
             else:
                 gr_pos_enc_kernel = gr_kernel[:, :k_gr_pos_enc + 1, :, :]
 

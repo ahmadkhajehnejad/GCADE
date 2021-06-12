@@ -56,8 +56,8 @@ class Args():
         self.epochs = 3002 # 3000  # now one epoch means self.batch_ratio x batch_size
         self.epochs_test_start = 750 # 100
         self.epochs_test = 750 # 100
-        self.epochs_log = 740
-        self.epochs_save = 740
+        self.epochs_log = 50
+        self.epochs_save = 50
 
         # self.lr = 0.003 #0.003
         # self.milestones = [4000, 10000]
@@ -87,9 +87,11 @@ class Args():
         self.k_graph_attention = 0 # 4
         self.normalize_graph_attention = False  # True #
         self.batchnormalize_graph_attention = False # True #
+        self.log_graph_attention = False  # True #
         self.k_graph_positional_encoding = 0 # 4
         self.normalize_graph_positional_encoding = False # True #
         self.batchnormalize_graph_positional_encoding = False # True #
+        self.log_graph_positional_encoding = False # True #
         if self.input_type == 'node_based':
             self.trg_pad_idx = 0
             self.src_pad_idx = 0
@@ -177,7 +179,7 @@ class Args():
         # self.MADE_natural_ordering = False
         # self.MADE_num_hidden_layers = 1
 
-        self.note = 'Gransformer-6layers-nomodellayernorm-estnumnodes-gattk16batchnorm' # -grposenck4batchnorm-bfsincpar'
+        self.note = 'Gransformer-6layers-nomodellayernorm-estnumnodes-gattk16log' # gattk16batchnorm-grposenck4batchnorm-bfsincpar'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
@@ -200,6 +202,9 @@ class Args():
                 elif param.endswith('norm'):
                     self.k_graph_attention = int(param[5:-4])
                     self.normalize_graph_attention = True
+                elif param.endswith('log'):
+                    self.k_graph_attention = int(param[5:-3])
+                    self.log_graph_attention = True
                 else:
                     self.k_graph_attention = int(param[5:])
             elif param.startswith('grposenck'):
@@ -209,6 +214,9 @@ class Args():
                 elif param.endswith('norm'):
                     self.k_graph_positional_encoding = int(param[9:-4])
                     self.normalize_graph_positional_encoding = True
+                elif param.endswith('log'):
+                    self.k_graph_positional_encoding = int(param[9:-3])
+                    self.log_graph_positional_encoding = True
                 else:
                     self.k_graph_positional_encoding = int(param[9:])
             elif param.endswith('nhead'):
