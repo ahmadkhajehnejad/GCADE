@@ -15,7 +15,7 @@ import utils
 import torch.nn.functional as F
 from utils import save_graph_list
 import pickle
-
+import argparse
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
@@ -509,6 +509,37 @@ def generate_graph(gg_model, args):
     return G_pred_list
 
 
+def just_generate(gg_model, dataset_train, args, gen_iter):
+    if args.estimate_num_nodes:
+        print('estimation of num_nodes_prob started')
+        gg_model.num_nodes_prob = np.zeros(args.max_num_node + 1)
+        for epoch in range(10):
+            for data in dataset_train:
+                adj = data['adj'].to(args.device)
+                for a in adj:
+                    idx = a.sum(dim=0).bool().sum().item()
+                    gg_model.num_nodes_prob[idx] += 1
+        gg_model.num_nodes_prob = gg_model.num_nodes_prob / gg_model.num_nodes_prob.sum()
+        print('estimation of num_nodes_prob finished')
+
+    fname = args.model_save_path + args.fname + '_' + args.graph_type + '_'  + str(gen_iter) + '.dat'
+    gg_model.load_state_dict(torch.load(fname))
+
+    for sample_time in range(1,2): #4):
+        print('     sample_time:', sample_time)
+        G_pred = []
+        while len(G_pred)<args.test_total_size:
+            print('        len(G_pred):', len(G_pred))
+            G_pred_step = generate_graph(gg_model, args)
+            G_pred.extend(G_pred_step)
+        # save graphs
+        fname = args.graph_save_path + args.fname_pred + str(epoch) + '_' + str(sample_time) + '.dat'
+        utils.save_graph_list(G_pred, fname)
+    print('test done, graphs saved')
+
+    # np.save(args.timing_save_path+args.fname,time_all)
+
+
 def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
     ## initialize optimizer
@@ -624,4 +655,12 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
     # np.save(args.timing_save_path+args.fname,time_all)
 
-train(model, dataset_loader, val_dataset_loader, optimizer, args)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-g', '--generate', help='number of generation iteration (just generate)', action='store', type=int)
+    console_args = parser.parse_args()
+
+    if console_args.generate is not None:
+        just_generate(model, dataset_loader, args, console_args.generate)
+    else:
+        train(model, dataset_loader, val_dataset_loader, optimizer, args)

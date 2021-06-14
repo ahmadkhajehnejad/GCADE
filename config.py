@@ -45,7 +45,7 @@ class Args():
         self.nll_save_path = self.dir_input + 'nll/'
 
 
-        self.batch_size = 32 # 32  # normal: 32, and the rest should be changed accordingly
+        self.batch_size = 16 # 32  # normal: 32, and the rest should be changed accordingly
         self.test_batch_size = 10 # 50
         self.test_total_size = 1000 # 1000
 
@@ -54,8 +54,8 @@ class Args():
         self.batch_ratio = 32 * (32 // self.batch_size) # how many batches of samples per epoch, default 32, e.g., 1 epoch = 32 batches
         self.epoch_train_start = 0
         self.epochs = 3002 # 3000  # now one epoch means self.batch_ratio x batch_size
-        self.epochs_test_start = 750 # 100
-        self.epochs_test = 750 # 100
+        self.epochs_test_start = 4000 # 750 # 100
+        self.epochs_test = 4000 # 750 # 100
         self.epochs_log = 50
         self.epochs_save = 50
 
@@ -183,14 +183,15 @@ class Args():
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
-            if param.endswith('layers'):
-                self.n_layers = int(param[:-6])
-            elif param.endswith('layer'):
-                self.n_layers = int(param[:-5])
-            elif param.endswith('grlayers'):
+
+            if param.endswith('grlayers'):
                 self.n_grlayers = int(param[:-8])
             elif param.endswith('grlayer'):
                 self.n_grlayers = int(param[:-7])
+            elif param.endswith('layers'):
+                self.n_layers = int(param[:-6])
+            elif param.endswith('layer'):
+                self.n_layers = int(param[:-5])
             elif param == 'posoutput':
                 self.output_positional_embedding = True
             elif param == 'bfsincpar':
