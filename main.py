@@ -533,7 +533,7 @@ def just_generate(gg_model, dataset_train, args, gen_iter):
             G_pred_step = generate_graph(gg_model, args)
             G_pred.extend(G_pred_step)
         # save graphs
-        fname = args.graph_save_path + args.fname_pred + str(epoch) + '_' + str(sample_time) + '.dat'
+        fname = args.graph_save_path + args.fname_pred + str(gen_iter) + '_' + str(sample_time) + '.dat'
         utils.save_graph_list(G_pred, fname)
     print('test done, graphs saved')
 
