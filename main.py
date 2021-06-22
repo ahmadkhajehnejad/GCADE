@@ -638,7 +638,7 @@ def generate_graph(gg_model, args):
 
     # save graphs as pickle
     G_pred_list = []
-    for i in range(args.test_batch_size):
+    for i in range(src_seq.size(0)):
         adj_pred = my_decode_adj(src_seq[i,1:].cpu().numpy(), args)
         G_pred = utils.get_graph(adj_pred) # get a graph from zero-padded adj
         G_pred_list.append(G_pred)
