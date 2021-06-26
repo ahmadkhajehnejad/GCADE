@@ -58,6 +58,9 @@ class Args():
         self.epochs_test = 4000 # 750 # 100
         self.epochs_log = 50
         self.epochs_save = 50
+        self.training_portion = 0.8
+        self.validation_portion = 0.2
+        self.test_portion = 0.2
 
         # self.lr = 0.003 #0.003
         # self.milestones = [4000, 10000]
@@ -179,7 +182,7 @@ class Args():
         # self.MADE_natural_ordering = False
         # self.MADE_num_hidden_layers = 1
 
-        self.note = 'Gransformer-6layers-nomodellayernorm-estnumnodes-gattk16log' # gattk16batchnorm-grposenck4batchnorm-bfsincpar'
+        self.note = 'Gransformer-trainpr0.2,valpr0.2,testpr0.2-6layers-nomodellayernorm-estnumnodes-gattk16log' # gattk16batchnorm-grposenck4batchnorm-bfsincpar'
 
         note_params = self.note.split('-')
         for param in note_params[1:]:
@@ -241,9 +244,13 @@ class Args():
                 self.estimate_num_nodes = True
             elif param == 'nomodellayernorm':
                 self.no_model_layer_norm = True
+            elif param.startswith('trainpr'):
+                tmp = param.split(',')
+                self.training_portion = float(tmp[0][7:])
+                self.validation_portion = float(tmp[1][5:])
+                self.test_portion = float(tmp[2][6:])
             else:
                 raise Exception('Unknown note')
-
 
         ### filenames to save intemediate and final outputs
         # self.fname = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(

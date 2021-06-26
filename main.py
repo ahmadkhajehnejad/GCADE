@@ -36,10 +36,6 @@ if args.use_pre_saved_graphs:
 
     with open(args.graph_save_path + args.fname_test + '0.dat', 'rb') as fin:
         graphs = pickle.load(fin)
-    graphs_len = len(graphs)
-    graphs_test = graphs[int(0.8 * graphs_len):]
-    graphs_train = graphs[0:int(0.8 * graphs_len)]
-    graphs_validate = graphs[0:int(0.2 * graphs_len)]
 
     # if use pre-saved graphs
     # dir_input = "/dfs/scratch0/jiaxuany0/graphs/"
@@ -51,14 +47,15 @@ if args.use_pre_saved_graphs:
     # graphs_validate = graphs[int(0.2 * graphs_len):int(0.4 * graphs_len)]
 
 else:
-    # split datasets
     random.shuffle(graphs)
-    graphs_len = len(graphs)
-    graphs_test = graphs[int(0.8 * graphs_len):]
-    graphs_train = graphs[0:int(0.8 * graphs_len)]
-    graphs_validate = graphs[0:int(0.2 * graphs_len)]
 
+graphs_len = len(graphs)
+graphs_test = graphs[int((1 - args.test_portion) * graphs_len):]
+graphs_train = graphs[0:int(args.training_portion * graphs_len)]
+graphs_validate = graphs[int((1 - args.test_portion - args.validation_portion) * graphs_len):
+                         int((1 - args.test_portion) * graphs_len)]
 
+if not args.use_pre_saved_graphs:
     # save ground truth graphs
     ## To get train and test set, after loading you need to manually slice
     save_graph_list(graphs, args.graph_save_path + args.fname_train + '0.dat')
@@ -652,6 +649,8 @@ def just_generate(gg_model, dataset_train, args, gen_iter):
         print('estimation of num_nodes_prob started')
         gg_model.num_nodes_prob = np.zeros(args.max_num_node + 1)
         for epoch in range(10):
+            print(epoch, ' ', end='')
+            sys.stdout.flush()
             for data in dataset_train:
                 adj = data['adj'].to(args.device)
                 for a in adj:
@@ -688,6 +687,8 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
         print('estimation of num_nodes_prob started')
         gg_model.num_nodes_prob = np.zeros(args.max_num_node + 1)
         for epoch in range(10):
+            print(epoch, ' ', end='')
+            sys.stdout.flush()
             for data in dataset_train:
                 adj = data['adj'].to(args.device)
                 for a in adj:

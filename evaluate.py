@@ -17,19 +17,19 @@ class Args_evaluate():
         # self.model_name_all = ['GraphRNN_MLP','GraphRNN_RNN','Internal','Noise']
         # self.model_name_all = ['E-R', 'B-A']
         # self.model_name_all = ['GraphRNN_RNN']
-        self.model_name_all = ['Gransformer-2layers']
+        self.model_name_all = ['Gransformer-6layers-nomodellayernorm-estnumnodes-gattk16log']
         # self.model_name_all = ['Baseline_DGMG']
 
         # list of dataset to evaluate
         # use a list of 1 element to evaluate a single dataset
-        self.dataset_name_all = ['grid_small'] # ['caveman', 'grid', 'barabasi', 'citeseer', 'DD']
+        self.dataset_name_all = ['DD'] # ['caveman', 'grid', 'barabasi', 'citeseer', 'DD']
         # self.dataset_name_all = ['citeseer_small'] #['citeseer']
         # self.dataset_name_all = ['citeseer_small','caveman_small']
         # self.dataset_name_all = ['barabasi_noise0','barabasi_noise2','barabasi_noise4','barabasi_noise6','barabasi_noise8','barabasi_noise10']
         # self.dataset_name_all = ['caveman_small', 'ladder_small', 'grid_small', 'ladder_small', 'enzymes_small', 'barabasi_small','citeseer_small']
 
-        self.epoch_start=750
-        self.epoch_end=751
+        self.epoch_start=3000
+        self.epoch_end=3001
         self.epoch_step=750
 
 def find_nearest_idx(array,value):
@@ -187,7 +187,7 @@ def evaluation_epoch(dir_input, fname_output, model_name, dataset_name, args, is
             fname_test = dir_input + model_name + '_' + dataset_name + '_' + str(64) + '_test_' + str(0) + '.dat'
         else:
             # fname_test = dir_input + model_name + '_' + dataset_name + '_' + str(args.num_layers) + '_' + str(
-            fname_test = dir_input + model_name + '_' + dataset_name + '_' + args.input_type + '_test_' + str(0) + '.dat'
+            fname_test = dir_input + model_name.split('-')[0] + '_' + dataset_name + '_' + args.input_type + '_test_' + str(0) + '.dat'
         try:
             graph_test = utils.load_graph_list(fname_test,is_real=True)
         except:
