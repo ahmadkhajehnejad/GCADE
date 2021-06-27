@@ -676,6 +676,32 @@ def just_generate(gg_model, dataset_train, args, gen_iter):
 
     # np.save(args.timing_save_path+args.fname,time_all)
 
+def just_test(gg_model, dataset):
+
+    for epoch in range(0, args.epochs, args.epochs_save):
+        fname = args.model_save_path + args.fname + '_' + args.graph_type + '_' + str(epoch) + '.dat'
+        gg_model.load_state_dict(torch.load(fname))
+
+        test_running_loss = 0.0
+        tsz = 0
+        gg_model.eval()
+        for i, data in enumerate(dataset):
+            if args.use_MADE:
+                gg_model.trg_word_MADE.update_masks()
+            src_seq = data['src_seq'].to(args.device)
+            trg_seq = data['src_seq'].to(args.device) 
+            gold = data['trg_seq'].contiguous().to(args.device)
+            adj = data['adj'].to(args.device)
+
+            pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
+            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
+
+            test_running_loss += loss.item()
+            tsz += src_seq.size(0)
+
+        print('[epoch %d]     loss: %.3f' % (epoch + 1, test_running_loss / tsz))
+
+
 
 def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
@@ -797,9 +823,15 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-g', '--generate', help='number of generation iteration (just generate)', action='store', type=int)
+    parser.add_argument('-v', '--validate', help='just validate', action='store_true')
+    parser.add_argument('-t', '--test', help='just test', action='store_true')
     console_args = parser.parse_args()
 
     if console_args.generate is not None:
         just_generate(model, dataset_loader, args, console_args.generate)
+    elif console_args.validate:
+        just_test(model, val_dataset_loader)
+    elif console_args.test:
+        just_test(model, ----)
     else:
         train(model, dataset_loader, val_dataset_loader, optimizer, args)
