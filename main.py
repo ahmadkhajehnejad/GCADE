@@ -116,6 +116,15 @@ val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.ba
                                              sampler=val_sample_strategy)
 
 
+test_dataset = MyGraph_sequence_sampler_pytorch(graphs_test, args, max_prev_node=args.max_prev_node,
+                                             max_num_node=args.max_num_node)
+test_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(test_dataset) for i in range(len(test_dataset))],
+                                                                 num_samples=args.batch_size * args.batch_ratio,
+                                                                 replacement=True)
+test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
+                                             sampler=test_sample_strategy)
+
+
 if args.input_type == 'node_based':
     args.max_seq_len = dataset.max_seq_len
     args.vocab_size = args.max_num_node + 3  # 0 for padding, self.n+1 for add_node, self.n+2 for termination
@@ -832,6 +841,6 @@ if __name__ == '__main__':
     elif console_args.validate:
         just_test(model, val_dataset_loader)
     elif console_args.test:
-        just_test(model, ----)
+        just_test(model, test_dataset_loader)
     else:
         train(model, dataset_loader, val_dataset_loader, optimizer, args)
