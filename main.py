@@ -109,20 +109,20 @@ dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size
 
 val_dataset = MyGraph_sequence_sampler_pytorch(graphs_validate, args, max_prev_node=args.max_prev_node,
                                              max_num_node=args.max_num_node)
-val_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(val_dataset) for i in range(len(val_dataset))],
-                                                                 num_samples=args.batch_size * args.batch_ratio,
-                                                                 replacement=True)
+# val_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(val_dataset) for i in range(len(val_dataset))],
+#                                                                  num_samples=args.batch_size * args.batch_ratio,
+#                                                                  replacement=True)
 val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
-                                             sampler=val_sample_strategy)
+                                             sampler=None) #val_sample_strategy)
 
 
 test_dataset = MyGraph_sequence_sampler_pytorch(graphs_test, args, max_prev_node=args.max_prev_node,
                                              max_num_node=args.max_num_node)
-test_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(test_dataset) for i in range(len(test_dataset))],
-                                                                 num_samples=args.batch_size * args.batch_ratio,
-                                                                 replacement=True)
+# test_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(test_dataset) for i in range(len(test_dataset))],
+#                                                                  num_samples=args.batch_size * args.batch_ratio,
+#                                                                  replacement=True)
 test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
-                                             sampler=test_sample_strategy)
+                                             sampler=None) #test_sample_strategy)
 
 
 if args.input_type == 'node_based':
@@ -694,7 +694,7 @@ def just_test(gg_model, dataset):
         test_running_loss = 0.0
         tsz = 0
         gg_model.eval()
-        for i, data in enumerate(dataset):
+        for data in dataset:
             if args.use_MADE:
                 gg_model.trg_word_MADE.update_masks()
             src_seq = data['src_seq'].to(args.device)
