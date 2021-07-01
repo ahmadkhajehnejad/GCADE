@@ -6,7 +6,7 @@ class Args(BaseArgs):
 
 
 
-        self.batch_size = 16 # 32  # normal: 32, and the rest should be changed accordingly
+        self.batch_size = 32 # 32  # normal: 32, and the rest should be changed accordingly
         self.test_batch_size = 10 # 50
         self.test_total_size = 1000 # 1000
 
@@ -32,8 +32,8 @@ class Args(BaseArgs):
 
 
         ## optimizer:
-        self.lr_list = [0.0002, 0.00007, 0.00001]
-        self.milestones = [self.batch_ratio * 100, self.batch_ratio * 200]
+        self.lr_list = [0.001, 0.0002, 0.00004, 0.000008, 0.0000016]
+        self.milestones = [self.batch_ratio * 60, self.batch_ratio * 120, self.batch_ratio * 180, self.batch_ratio * 240]
 
 
         self.note = 'Gransformer-3layers-nomodellayernorm-estnumnodes' # -gattk4log' # -trainpr0.2,valpr0.2,testpr0.2 # gattk16batchnorm-grposenck4batchnorm-bfsincpar'
