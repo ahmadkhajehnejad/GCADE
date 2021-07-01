@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from transformer.Models import Transformer
 import torch.optim as optim
-from transformer.Optim import ScheduledOptim
+from transformer.Optim import MyScheduledOptim #, ScheduledOptim
 import time
 import sys
 import utils
@@ -163,9 +163,12 @@ model = Transformer(
 
 print('model initiated.')
 
-optimizer = ScheduledOptim(
+# optimizer = ScheduledOptim(
+#     optim.Adam(model.parameters(), betas=(0.9, 0.98), eps=1e-09),
+#     args.lr_mul, args.d_model, args.n_warmup_steps)
+optimizer = MyScheduledOptim(
     optim.Adam(model.parameters(), betas=(0.9, 0.98), eps=1e-09),
-    args.lr_mul, args.d_model, args.n_warmup_steps)
+    args.milestones, args.lr_list)
 
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
@@ -783,7 +786,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
         val_running_loss = 0.0
         vlsz = 1
-        '''
+
         vlsz = 0
         gg_model.eval()
         for i, data in enumerate(dataset_validation, 0):
@@ -799,7 +802,7 @@ def train(gg_model, dataset_train, dataset_validation, optimizer, args):
 
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
-        '''
+
         if epoch % args.epochs_save == 0:
             fname = args.model_save_path + args.fname + '_' + args.graph_type + '_'  + str(epoch) + '.dat'
             torch.save(gg_model.state_dict(), fname)
