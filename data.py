@@ -594,6 +594,7 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
         G = nx.from_numpy_matrix(adj_copy_matrix)
         # then do bfs in the permuted G
         start_idx = np.random.randint(adj_copy.shape[0])
+        # print('hey', idx, start_idx, np.random.randint(100))
         if self.args.node_ordering == 'bfs':
             x_idx = np.array(bfs_seq(G, start_idx))
         elif self.args.node_ordering == 'blanket':

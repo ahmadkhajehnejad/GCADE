@@ -104,7 +104,7 @@ dataset = MyGraph_sequence_sampler_pytorch(graphs_train, args, max_prev_node=arg
 sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(dataset) for i in range(len(dataset))],
                                                                  num_samples=args.batch_size * args.batch_ratio,
                                                                  replacement=True)
-dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers,
+dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, #num_workers=args.num_workers,
                                              sampler=sample_strategy)
 
 val_dataset = MyGraph_sequence_sampler_pytorch(graphs_validate, args, max_prev_node=args.max_prev_node,
@@ -112,7 +112,7 @@ val_dataset = MyGraph_sequence_sampler_pytorch(graphs_validate, args, max_prev_n
 # val_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(val_dataset) for i in range(len(val_dataset))],
 #                                                                  num_samples=args.batch_size * args.batch_ratio,
 #                                                                  replacement=True)
-val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
+val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, #num_workers=args.num_workers,
                                              sampler=None) #val_sample_strategy)
 
 
@@ -121,7 +121,7 @@ test_dataset = MyGraph_sequence_sampler_pytorch(graphs_test, args, max_prev_node
 # test_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(test_dataset) for i in range(len(test_dataset))],
 #                                                                  num_samples=args.batch_size * args.batch_ratio,
 #                                                                  replacement=True)
-test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers,
+test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size,  #num_workers=args.num_workers,
                                              sampler=None) #test_sample_strategy)
 
 
@@ -787,7 +787,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
         val_running_loss = 0.0
         vlsz = 0
         gg_model.eval()
-        for i, data in enumerate(dataset_validation, 0):
+        for i, data in enumerate(dataset_validation):
             if args.use_MADE:
                 gg_model.trg_word_MADE.update_masks()
             src_seq = data['src_seq'].to(args.device)
@@ -804,7 +804,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
         test_running_loss = 0.0
         testsz = 0
         gg_model.eval()
-        for i, data in enumerate(dataset_test, 0):
+        for i, data in enumerate(dataset_test):
             if args.use_MADE:
                 gg_model.trg_word_MADE.update_masks()
             src_seq = data['src_seq'].to(args.device)
@@ -846,6 +846,20 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
             print('test done, graphs saved')
 
     # np.save(args.timing_save_path+args.fname,time_all)
+
+
+'''
+while True:
+    for i, data in enumerate(test_dataset_loader):
+        adj = data['adj'].to(args.device)
+        print('           ##', i, '  ', adj[0, 0, :].sum().item(), '  ', adj.size(0))
+        print('           ##', i, '  ', adj[0, 1, :].sum().item(), '  ', adj.size(0))
+        print('           ##', i, '  ', adj[0, 2, :].sum().item(), '  ', adj.size(0))
+        print('           ##', i, '  ', adj[0, 3, :].sum().item(), '  ', adj.size(0))
+        print('           ##', i, '  ', adj[0, 4, :].sum().item(), '  ', adj.size(0))
+    print()
+    input()
+'''
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

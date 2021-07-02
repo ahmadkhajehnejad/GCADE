@@ -25,7 +25,7 @@ class BaseArgs():
 
 
         ### training config
-        self.num_workers = 4  # num workers to load data, default 4
+        # self.num_workers = 4  # num workers to load data, default 4
 
 
         self.sample_time = 2  # sample time in each time step, when validating
