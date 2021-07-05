@@ -36,6 +36,6 @@ class Args(BaseArgs):
         self.milestones = [self.batch_ratio * 60, self.batch_ratio * 120, self.batch_ratio * 180, self.batch_ratio * 240]
 
 
-        self.note = 'Gransformer-3layers-nomodellayernorm-estnumnodes' # -gattk4log' # -trainpr0.2,valpr0.2,testpr0.2 # gattk16batchnorm-grposenck4batchnorm-bfsincpar'
+        self.note = 'Gransformer-3layers-nomodellayernorm-estnumnodes' # -typededges' # -nhead1-nensemble1' # -gattk4log' # -trainpr0.2,valpr0.2,testpr0.2 # grposenck4log-bfsincpar'
 
         super().__init__(self.graph_type, self.note)

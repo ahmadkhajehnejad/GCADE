@@ -64,7 +64,7 @@ class EnsembleMultiHeadAttention(nn.Module):
     '''Ensemble  Multi-Head Attention module '''
 
     def __init__(self, n_ensemble_q, n_ensemble_k, n_head, d_model, d_k, d_v, no_layer_norm,
-                 k_gr_att=0, gr_att_batchnorm=False, dropout=0.1, attn_dropout=0.1):
+                 typed_edges, k_gr_att=0, gr_att_batchnorm=False, dropout=0.1, attn_dropout=0.1):
         super().__init__()
 
         self.n_head = n_head
@@ -72,6 +72,7 @@ class EnsembleMultiHeadAttention(nn.Module):
         self.d_v = d_v
         self.d_model = d_model
         self.no_layer_norm = no_layer_norm
+        self.typed_edges = typed_edges
 
         self.n_ensemble_q = n_ensemble_q
         self.n_ensemble_k = n_ensemble_k
@@ -102,10 +103,26 @@ class EnsembleMultiHeadAttention(nn.Module):
             nn.Linear(d_model, n_head * d_v, bias=False)
             for _ in range(n_ensemble_k)
         ])
+
+        if self.typed_edges:
+            self.w_qs_list_2 = nn.ModuleList([
+                nn.Linear(d_model, n_head * d_k, bias=False)
+                for _ in range(n_ensemble_q)
+            ])
+            self.w_ks_list_2 = nn.ModuleList([
+                nn.Linear(d_model, n_head * d_k, bias=False)
+                for _ in range(n_ensemble_k)
+            ])
+            self.w_vs_list_2 = nn.ModuleList([
+                nn.Linear(d_model, n_head * d_v, bias=False)
+                for _ in range(n_ensemble_k)
+            ])
+
         self.fc_list = nn.ModuleList([
             nn.Linear(n_head * d_v, d_model, bias=False)
             for _ in range(n_ensemble_q)
         ])
+
 
         self.attn_dropout = nn.Dropout(attn_dropout)
         self.temperature=d_k ** 0.5
@@ -116,7 +133,7 @@ class EnsembleMultiHeadAttention(nn.Module):
             self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
 
-    def forward(self, q, k, v, mask=None, gr_mask=None):
+    def forward(self, q, k, v, mask=None, gr_mask=None, adj=None):
 
         # q is b x lq x n_ens x d
 
@@ -145,6 +162,28 @@ class EnsembleMultiHeadAttention(nn.Module):
             sz_b, n_head, len_k * n_ensemble_k, d_v
         )
 
+        if self.typed_edges:
+            q_prj_2 = torch.zeros(sz_b, len_q, n_ensemble_q, n_head * d_k, device=q.device)
+            for i, w_qs in enumerate(self.w_qs_list_2):
+                q_prj_2[:, :, i, :] = w_qs(q[:, :, i, :])
+
+            k_prj_2 = torch.zeros(sz_b, len_k, n_ensemble_k, n_head * d_k, device=k.device)
+            for i, w_ks in enumerate(self.w_ks_list_2):
+                k_prj_2[:, :, i, :] = w_ks(k[:, :, i, :])
+
+            v_prj_2 = torch.zeros(sz_b, len_k, n_ensemble_k, n_head * d_v, device=v.device)
+            for i, w_vs in enumerate(self.w_vs_list_2):
+                v_prj_2[:, :, i, :] = w_vs(v[:, :, i, :])
+
+            # v_prj_tmp_2 = v_prj_2.view(sz_b, len_k, n_ensemble_k, n_head, d_v).transpose(2, 3).transpose(1, 2).view(
+            #     sz_b, n_head, len_k * n_ensemble_k, d_v
+            # )
+
+
+        if self.typed_edges:
+            adj_tril = torch.tril(adj, diagonal=0)
+            adj_tril = adj_tril.unsqueeze(1).repeat(1, n_head, 1, 1)
+
         pre_output = torch.zeros(sz_b, n_head, len_q, n_ensemble_q, d_v, device=v.device)
 
         for i in range(n_ensemble_q):
@@ -154,6 +193,11 @@ class EnsembleMultiHeadAttention(nn.Module):
             q_ens = q_ens.transpose(1, 2)
 
             attn = torch.zeros(sz_b, n_head, len_q, len_k, n_ensemble_k, device=q_prj.device)
+
+            if self.typed_edges:
+                q_ens_2 = q_prj_2[:, :, i, :].view(sz_b, len_q, n_head, d_k)
+                q_ens_2 = q_ens_2.transpose(1, 2)
+
             for j in range(n_ensemble_k):
 
                 # Pass through the pre-attention projection: b x lq x (n_head*dv)
@@ -169,6 +213,13 @@ class EnsembleMultiHeadAttention(nn.Module):
                 '''
                 attn_ = torch.zeros(sz_b, n_head, len_q, len_k).to(v.device)
                 '''
+
+                if self.typed_edges:
+                    k_ens_2 = k_prj_2[:, :, j, :].view(sz_b, len_k, n_head, d_k)
+                    v_ens_2 = v_prj_2[:, :, j, :].view(sz_b, len_v, n_head, d_v)
+                    k_ens_2, v_ens_2 = k_ens_2.transpose(1, 2), v_ens_2.transpose(1, 2)
+                    attn_2_ = torch.matmul(q_ens_2 / self.temperature, k_ens_2.transpose(2, 3))
+                    attn_ = attn_ * adj_tril + attn_2_ * (1 - adj_tril)
 
                 if mask is not None:
                     if gr_mask is not None:

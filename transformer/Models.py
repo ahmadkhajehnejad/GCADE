@@ -139,7 +139,7 @@ class Encoder(nn.Module):
         k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
         self.layer_stack = nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, no_layer_norm=args.no_model_layer_norm,
-                         k_gr_att=k_graph_attention, gr_att_batchnorm=args.batchnormalize_graph_attention ,dropout=dropout)
+                         typed_edges=args.typed_edges, k_gr_att=k_graph_attention, gr_att_batchnorm=args.batchnormalize_graph_attention ,dropout=dropout)
             for _ in range(n_layers)])
         if not args.no_model_layer_norm:
             self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
@@ -183,9 +183,9 @@ class Encoder(nn.Module):
 
         for i, enc_layer in enumerate(self.layer_stack):
             if i < self.n_grlayers:
-                enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=gr_src_mask, gr_mask=None)
+                enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=gr_src_mask, gr_mask=None, adj=adj)
             else:
-                enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask)
+                enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask, adj=adj)
             enc_slf_attn_list += [enc_slf_attn] if return_attns else []
 
         if return_attns:
@@ -232,14 +232,14 @@ class Decoder(nn.Module):
         k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
         self.layer_stack = nn.ModuleList([
             DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, no_layer_norm=args.no_model_layer_norm,
-                         k_gr_att=k_graph_attention, gr_att_batchnorm=args.batchnormalize_graph_attention, dropout=dropout)
+                         typed_edges=args.typed_edges, k_gr_att=k_graph_attention, gr_att_batchnorm=args.batchnormalize_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
         if not args.no_model_layer_norm:
             self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
         self.d_model = d_model
 
-    def forward(self, trg_seq, trg_mask, enc_output, src_mask, gr_mask, return_attns=False):
+    def forward(self, trg_seq, trg_mask, enc_output, src_mask, gr_mask, adj, return_attns=False):
 
         dec_slf_attn_list, dec_enc_attn_list = [], []
 
@@ -263,7 +263,7 @@ class Decoder(nn.Module):
 
         for dec_layer in self.layer_stack:
             dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
-                dec_output, enc_output, slf_attn_mask=trg_mask, dec_enc_attn_mask=src_mask, gr_mask=gr_mask)
+                dec_output, enc_output, slf_attn_mask=trg_mask, dec_enc_attn_mask=src_mask, gr_mask=gr_mask, adj=adj)
             dec_slf_attn_list += [dec_slf_attn] if return_attns else []
             dec_enc_attn_list += [dec_enc_attn] if return_attns else []
 
@@ -476,7 +476,7 @@ class Transformer(nn.Module):
         if self.args.only_encoder:
             dec_output = enc_output
         else:
-            dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask, gr_mask)
+            dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask, gr_mask, adj)
 
         if self.args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)

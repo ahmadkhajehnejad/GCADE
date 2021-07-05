@@ -115,6 +115,7 @@ class BaseArgs():
         assert self.n_grlayers <= self.n_layers
         assert self.n_grlayers == 0 or self.k_graph_attention == 0
         self.estimate_num_nodes = False # True #
+        self.typed_edges = False # True
         #################################################################################
 
         self.note = note
@@ -158,9 +159,9 @@ class BaseArgs():
                     self.log_graph_positional_encoding = True
                 else:
                     self.k_graph_positional_encoding = int(param[9:])
-            elif param.endswith('nhead'):
+            elif param.startswith('nhead'):
                 self.n_head = int(param[5:])
-            elif param.endswith('nensemble'):
+            elif param.startswith('nensemble'):
                 self.n_ensemble = int(param[9:])
             elif param.startswith('MADE'):
                 self.use_MADE = True
@@ -184,6 +185,8 @@ class BaseArgs():
                 self.training_portion = float(tmp[0][7:])
                 self.validation_portion = float(tmp[1][5:])
                 self.test_portion = float(tmp[2][6:])
+            elif param == 'typededges':
+                self.typed_edges = True
             else:
                 raise Exception('Unknown note')
 
