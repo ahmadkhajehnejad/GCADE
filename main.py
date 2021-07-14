@@ -216,6 +216,9 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
         elif args.input_type == 'preceding_neighbors_vector':
 
+            if args.allow_all_zeros and (args.use_max_prev_node or args.use_bfs_incremental_parent_idx):
+                raise NotImplementedError
+
             pred = torch.sigmoid(pred).view(-1, args.max_seq_len, pred.size(-1))
 
             cond_1 = gold != args.trg_pad_idx
@@ -254,23 +257,29 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
 
             loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='sum')
 
-            cond_0 = gold[:,:,0] != args.trg_pad_idx
-            cond_0[:, 0] = False
-            cond_2 = cond_0.unsqueeze(-1).repeat(1, 1, gold.size(-1))
-            if args.use_max_prev_node:
-                cond_2 = cond_2 * cond_mpn
-            if args.use_bfs_incremental_parent_idx:
-                cond_2 = cond_2 * cond_bfs_par
-            pred_2 = torch.tril(pred * cond_2, diagonal=0)
-            gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
+            if args.allow_all_zeros:
+                loss = loss_1
+            else:
+                cond_0 = gold[:,:,0] != args.trg_pad_idx
+                cond_0[:, 0] = False
+                cond_2 = cond_0.unsqueeze(-1).repeat(1, 1, gold.size(-1))
+                if args.use_max_prev_node:
+                    cond_2 = cond_2 * cond_mpn
+                if args.use_bfs_incremental_parent_idx:
+                    cond_2 = cond_2 * cond_bfs_par
+                pred_2 = torch.tril(pred * cond_2, diagonal=0)
+                gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
 
-            p_zero = torch.exp(-F.binary_cross_entropy(pred_2, gold_2, reduction='none').sum(-1))
-            # loss_2 = torch.log(1-p_zero[cond_0]).sum()
-            loss_2 = torch.log(torch.max(1-p_zero[cond_0], torch.tensor([1e-9]).to(args.device))).sum()
-            loss = loss_1 + loss_2
+                p_zero = torch.exp(-F.binary_cross_entropy(pred_2, gold_2, reduction='none').sum(-1))
+                # loss_2 = torch.log(1-p_zero[cond_0]).sum()
+                loss_2 = torch.log(torch.max(1-p_zero[cond_0], torch.tensor([1e-9]).to(args.device))).sum()
+                loss = loss_1 + loss_2
         elif args.input_type == 'max_prev_node_neighbors_vec':
 
             pred = torch.sigmoid(pred).view(-1, args.max_seq_len, pred.size(-1))
+
+            if args.allow_all_zeros:
+                raise NotImplementedError
 
             cond_pad = gold != args.trg_pad_idx
             cond_max_prev = torch.ones(pred.size(0), pred.size(1), pred.size(2)).to(args.device)
@@ -602,26 +611,30 @@ def generate_graph(gg_model, args):
                         src_seq[remainder_idx, i+1, 1:i - args.max_prev_node + 1] = args.dontcare_input
                 if i == 0:
                     break
-                remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
-                if num_trials >= args.max_num_generate_trials:
-                    # print('   reached max_num_gen_trials   dim:', i, '   num remainder:', remainder_idx.detach().cpu().sum().item())
-                    src_seq[remainder_idx, i+1, 0] = args.one_input
-                    damaged_idx[remainder_idx] = True
+
+
+                if args.estimate_num_nodes:
+                    tmp_new_finished_idx = remainder_idx & torch.tensor(len_gen == i).to(args.device)
+                    src_seq[remainder_idx, i+1, 0] = args.zero_input
+                    src_seq[tmp_new_finished_idx, i+1, 0] = args.one_input
+
+                if args.allow_all_zeros:
                     remainder_idx[:] = False
-            if args.estimate_num_nodes:
-                new_finished_idx = torch.tensor(len_gen == i).to(args.device)
-                src_seq[new_finished_idx, i+1, 0] = args.one_input
-            else:
-                new_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] == args.one_input)
+                else:
+                    remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
+                    if num_trials >= args.max_num_generate_trials:
+                        # print('   reached max_num_gen_trials   dim:', i, '   num remainder:', remainder_idx.detach().cpu().sum().item())
+                        src_seq[remainder_idx, i+1, 0] = args.one_input
+                        damaged_idx[remainder_idx] = True
+                        remainder_idx[:] = False
+
+            new_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] == args.one_input)
             src_seq[new_finished_idx, i + 1, 1:] = args.src_pad_idx
             if i > 0 and args.use_bfs_incremental_parent_idx:
                 tmp = src_seq[not_finished_idx, i + 1, :] == args.one_input
                 min_par_idx[not_finished_idx, :] = tmp.cumsum(dim=1) == 0
                 min_par_idx[not_finished_idx, 0] = False
-            if args.estimate_num_nodes:
-                not_finished_idx = not_finished_idx & torch.tensor(len_gen > i).to(args.device)
-            else:
-                not_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] != args.one_input)
+            not_finished_idx = not_finished_idx & (src_seq[:, i + 1, 0] != args.one_input)
             # if num_trials > 1:
             #     print('                          ', i, '      num of trials:', num_trials)
             if not_finished_idx.sum().item() == 0:

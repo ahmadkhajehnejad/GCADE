@@ -116,6 +116,7 @@ class BaseArgs():
         assert self.n_grlayers == 0 or self.k_graph_attention == 0
         self.estimate_num_nodes = False # True #
         self.typed_edges = False # True
+        self.allow_all_zeros = False # True
         #################################################################################
 
         self.note = note
@@ -187,6 +188,8 @@ class BaseArgs():
                 self.test_portion = float(tmp[2][6:])
             elif param == 'typededges':
                 self.typed_edges = True
+            elif param == 'allowAllZeros':
+                self.allow_all_zeros = True
             else:
                 raise Exception('Unknown note')
 

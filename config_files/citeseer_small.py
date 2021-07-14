@@ -7,7 +7,7 @@ class Args(BaseArgs):
 
 
         self.batch_size = 32 # 32  # normal: 32, and the rest should be changed accordingly
-        self.test_batch_size = 10 # 50
+        self.test_batch_size = 50 # 50
         self.test_total_size = 1000 # 1000
 
         ### training config
@@ -36,6 +36,6 @@ class Args(BaseArgs):
         self.milestones = [self.batch_ratio * 60, self.batch_ratio * 120, self.batch_ratio * 180, self.batch_ratio * 240]
 
 
-        self.note = 'Gransformer-3layers-nomodellayernorm-estnumnodes' # -typededges' # -nhead1-nensemble1' # -gattk4log' # -trainpr0.2,valpr0.2,testpr0.2 # grposenck4log-bfsincpar'
+        self.note = 'Gransformer-3layers-nomodellayernorm-estnumnodes' # -allowAllZeros # -typededges' # -nhead1-nensemble1' # -gattk4log' # -trainpr0.2,valpr0.2,testpr0.2 # grposenck4log-bfsincpar'
 
         super().__init__(self.graph_type, self.note)
