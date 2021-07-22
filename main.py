@@ -248,6 +248,9 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
                 cond_bfs_par = torch.tril(cond_bfs_par, diagonal=0)
                 cond_1 = cond_1 * cond_bfs_par
 
+            if not args.use_termination_bit:
+                cond_1[:, :, 0] = False
+
             pred_1 = torch.tril(pred * cond_1, diagonal=0)
             gold_1 = torch.tril(gold * cond_1, diagonal=0)
             ind_0 = gold_1 == args.zero_input
@@ -257,7 +260,7 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
 
             loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='sum')
 
-            if args.allow_all_zeros:
+            if args.allow_all_zeros or not args.use_termination_bit:
                 loss = loss_1
             else:
                 cond_0 = gold[:,:,0] != args.trg_pad_idx
@@ -618,6 +621,13 @@ def generate_graph(gg_model, args):
                     src_seq[remainder_idx, i+1, 0] = args.zero_input
                     src_seq[tmp_new_finished_idx, i+1, 0] = args.one_input
 
+                if not args.use_termination_bit:
+                    if args.estimate_num_nodes:
+                        raise NotImplementedError
+                    remainder_idx[:] = False
+                    tmp_new_finished_idx = remainder_idx & ((src_seq[:, i+1, 1:i+1] == args.one_input).sum(-1) == 0)
+                    src_seq[remainder_idx, i + 1, 0] = args.zero_input
+                    src_seq[tmp_new_finished_idx, i + 1, 0] = args.one_input
                 if args.allow_all_zeros:
                     remainder_idx[:] = False
                 else:

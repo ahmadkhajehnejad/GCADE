@@ -117,6 +117,7 @@ class BaseArgs():
         self.estimate_num_nodes = False # True #
         self.typed_edges = False # True
         self.allow_all_zeros = False # True
+        self.use_termination_bit = True # False
         #################################################################################
 
         self.note = note
@@ -190,6 +191,8 @@ class BaseArgs():
                 self.typed_edges = True
             elif param == 'allowAllZeros':
                 self.allow_all_zeros = True
+            elif param == 'noTerminationBit':
+                self.use_termination_bit = False
             else:
                 raise Exception('Unknown note')
 
