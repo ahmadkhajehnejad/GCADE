@@ -96,7 +96,7 @@ class BaseArgs():
         else:
             raise NotImplementedError('ensemble_input_type', self.ensemble_input_type, 'not recognized.')
         self.use_bfs_incremental_parent_idx = False  # True #    ### so far just implemented for max_pre_node_neighbors_vec input_type
-        self.output_positional_embedding = False  # True #
+        self.output_positional_embedding = None  # one_hot # tril
         self.k_graph_attention = 0  # 4
         self.normalize_graph_attention = False  # True #
         self.batchnormalize_graph_attention = False  # True #
@@ -133,8 +133,13 @@ class BaseArgs():
                 self.n_layers = int(param[:-6])
             elif param.endswith('layer'):
                 self.n_layers = int(param[:-5])
-            elif param == 'posoutput':
-                self.output_positional_embedding = True
+            elif param.startswith('posoutput'):
+                if param.endswith('oneHot'):
+                    self.output_positional_embedding = 'one_hot'
+                elif param.endswith('tril'):
+                    self.output_positional_embedding = 'tril'
+                else:
+                    raise Exception("unknown parameter", str(param))
             elif param == 'bfsincpar':
                 self.use_bfs_incremental_parent_idx = True
             elif param.startswith('gattk'):

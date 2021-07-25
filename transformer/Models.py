@@ -28,10 +28,14 @@ def get_subsequent_mask(seq):
     return subsequent_mask
 
 
-def outputPositionalEncoding(data):
+def outputPositionalEncoding(data, encType):
     seq_len = data.size(1)
-    # return torch.eye(seq_len, device=data.device).unsqueeze(0).repeat(data.size(0), 1, 1)
-    return torch.tril( torch.ones(data.size(0), seq_len, seq_len, device=data.device), diagonal=0)
+    if encType == 'one_hot':
+        return torch.eye(seq_len, device=data.device).unsqueeze(0).repeat(data.size(0), 1, 1)
+    elif encType == 'tril':
+        return torch.tril( torch.ones(data.size(0), seq_len, seq_len, device=data.device), diagonal=0)
+    else:
+        raise Exception('Unknown outputPositionalEncoding type:' + str(encType))
 
 
 class PositionalEncoding(nn.Module):
@@ -480,8 +484,8 @@ class Transformer(nn.Module):
 
         if self.args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
-            if self.args.output_positional_embedding:
-                dec_output = torch.cat([outputPositionalEncoding(dec_output), dec_output], dim=2)
+            if self.args.output_positional_embedding is not None:
+                dec_output = torch.cat([outputPositionalEncoding(dec_output, self.args.output_positional_embedding), dec_output], dim=2)
 
         if self.args.use_MADE:
             # dec_output = self.before_MADE_norm( self.before_trg_word_MADE(dec_output))

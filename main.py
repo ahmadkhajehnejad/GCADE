@@ -613,6 +613,7 @@ def generate_graph(gg_model, args):
                     if args.use_max_prev_node and i > args.max_prev_node:
                         src_seq[remainder_idx, i+1, 1:i - args.max_prev_node + 1] = args.dontcare_input
                 if i == 0:
+                    src_seq[remainder_idx, i+1, 0] = args.zero_input
                     break
 
 
