@@ -118,6 +118,7 @@ class BaseArgs():
         self.typed_edges = False # True
         self.allow_all_zeros = False # True
         self.use_termination_bit = True # False
+        self.weight_positions = False # True
         #################################################################################
 
         self.note = note
@@ -198,6 +199,8 @@ class BaseArgs():
                 self.allow_all_zeros = True
             elif param == 'noTerminationBit':
                 self.use_termination_bit = False
+            elif param == 'weightpositions':
+                self.weight_positions = True
             else:
                 raise Exception('Unknown note')
 

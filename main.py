@@ -175,10 +175,10 @@ if not os.path.exists(args.output_dir):
 
 
 
-def cal_performance(pred, gold, trg_pad_idx, args, smoothing=False):
+def cal_performance(pred, gold, trg_pad_idx, args, model, smoothing=False):
     ''' Apply label smoothing if needed '''
 
-    loss = cal_loss(pred, gold, trg_pad_idx, args, smoothing=smoothing)
+    loss = cal_loss(pred, gold, trg_pad_idx, args, model, smoothing=smoothing)
     if args.input_type == 'node_based':
         pred = pred.max(1)[1]
         gold = gold.contiguous().view(-1)
@@ -193,7 +193,7 @@ def cal_performance(pred, gold, trg_pad_idx, args, smoothing=False):
         raise NotImplementedError
 
 
-def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
+def cal_loss(pred, gold, trg_pad_idx, args, model, smoothing=False):
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
     if smoothing:
         if args.input_type == 'node_based':
@@ -258,7 +258,12 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
             gold_1[ind_0] = 0
             gold_1[ind_1] = 1
 
-            loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='sum')
+            if args.weight_positions:
+                loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='none').sum(-1)
+                loss_1 = loss_1 * model.positions_weights.view(1,-1)
+                loss_1 = loss_1.sum()
+            else:
+                loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='sum')
 
             if args.allow_all_zeros or not args.use_termination_bit:
                 loss = loss_1
@@ -275,7 +280,10 @@ def cal_loss(pred, gold, trg_pad_idx, args, smoothing=False):
 
                 p_zero = torch.exp(-F.binary_cross_entropy(pred_2, gold_2, reduction='none').sum(-1))
                 # loss_2 = torch.log(1-p_zero[cond_0]).sum()
-                loss_2 = torch.log(torch.max(1-p_zero[cond_0], torch.tensor([1e-9]).to(args.device))).sum()
+                loss_2 = torch.log(torch.max(1-p_zero[cond_0], torch.tensor([1e-9]).to(args.device)))
+                if args.weight_positions:
+                    loss_2 = loss_2 * model.positions_weights
+                loss_2 = loss_2.sum()
                 loss = loss_1 + loss_2
         elif args.input_type == 'max_prev_node_neighbors_vec':
 
@@ -730,7 +738,7 @@ def just_test(gg_model, dataset):
             adj = data['adj'].to(args.device)
 
             pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
+            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
 
             test_running_loss += loss.item()
             tsz += src_seq.size(0)
@@ -745,9 +753,9 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
     ## optimizer = torch.optim.Adam(list(gcade_model.parameters()), lr=args.lr)
     ## scheduler = MultiStepLR(optimizer, milestones=args.milestones, gamma=args.lr_rate)
 
-    if args.estimate_num_nodes:
+    if args.estimate_num_nodes or args.weight_positions:
         print('estimation of num_nodes_prob started')
-        gg_model.num_nodes_prob = np.zeros(args.max_num_node + 1)
+        num_nodes_prob = np.zeros(args.max_num_node + 1)
         for epoch in range(10):
             print(epoch, ' ', end='')
             sys.stdout.flush()
@@ -755,9 +763,20 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
                 adj = data['adj'].to(args.device)
                 for a in adj:
                     idx = a.sum(dim=0).bool().sum().item()
-                    gg_model.num_nodes_prob[idx] += 1
-        gg_model.num_nodes_prob = gg_model.num_nodes_prob / gg_model.num_nodes_prob.sum()
+                    num_nodes_prob[idx] += 1
+        num_nodes_prob = num_nodes_prob / num_nodes_prob.sum()
         print('estimation of num_nodes_prob finished')
+        if args.estimate_num_nodes:
+            gg_model.num_nodes_prob = num_nodes_prob
+        if args.weight_positions:
+            tmp = np.cumsum(num_nodes_prob, axis=0)
+            tmp = 1 - tmp[:-1]
+            tmp = np.concatenate([np.array([1.]), tmp])
+            tmp[tmp <= 0] = np.min(tmp[tmp > 0])
+            position_weights = 1 / tmp
+            gg_model.positions_weights = torch.tensor(position_weights).to(args.device).view(1, -1)
+
+
 
     # start main loop
     time_all = np.zeros(args.epochs)
@@ -800,7 +819,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
 
             optimizer.zero_grad()
             pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
+            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
             optimizer.step_and_update_lr()
@@ -820,7 +839,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
             adj = data['adj'].to(args.device)
 
             pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, smoothing=False)
+            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
 
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
@@ -837,7 +856,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
             adj = data['adj'].to(args.device)
 
             pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance(pred, gold, trg_pad_idx=0, args=args, smoothing=False)
+            loss, *_ = cal_performance(pred, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
 
             test_running_loss += loss.item()
             testsz += src_seq.size(0)
