@@ -141,10 +141,22 @@ class Encoder(nn.Module):
             self.position_enc = PositionalEncoding(args=args, d_hid=d_word_vec, n_position=n_position)
         self.dropout = nn.Dropout(p=dropout)
         k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
+
         self.layer_stack = nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, no_layer_norm=args.no_model_layer_norm,
-                         typed_edges=args.typed_edges, k_gr_att=k_graph_attention, gr_att_batchnorm=args.batchnormalize_graph_attention ,dropout=dropout)
+                         typed_edges=args.typed_edges, k_gr_att=k_graph_attention,
+                         gr_att_batchnorm=args.batchnormalize_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
+
+        if args.separate_termination_bit:
+            assert args.only_encoder
+            self.termination_bit_layer = EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v,
+                                                      no_layer_norm=args.no_model_layer_norm,
+                                                      typed_edges=args.typed_edges, k_gr_att=k_graph_attention,
+                                                      gr_att_batchnorm=args.batchnormalize_graph_attention,
+                                                      dropout=dropout)
+        self.separate_termination_bit = args.separate_termination_bit
+
         if not args.no_model_layer_norm:
             self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
@@ -191,9 +203,16 @@ class Encoder(nn.Module):
             else:
                 enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask, adj=adj)
             enc_slf_attn_list += [enc_slf_attn] if return_attns else []
+            if self.separate_termination_bit and i == len(self.layer_stack) - 2:
+                semifinal_enc_output = enc_output
 
         if return_attns:
+            if self.separate_termination_bit:
+                return enc_output, semifinal_enc_output, enc_slf_attn_list
             return enc_output, enc_slf_attn_list
+
+        if self.separate_termination_bit:
+            return enc_output, semifinal_enc_output
         return enc_output,
 
 
@@ -310,6 +329,7 @@ class Transformer(nn.Module):
         self.scale_prj = (scale_emb_or_prj == 'prj') if trg_emb_prj_weight_sharing else False
         self.d_model = d_model
         self.n_ensemble = n_ensemble
+        self.separate_termination_bit = args.separate_termination_bit
 
         self.encoder = Encoder(
             n_src_vocab=n_src_vocab, n_position=n_position,
@@ -332,6 +352,8 @@ class Transformer(nn.Module):
                 sz_out = args.max_num_node + 1
             else:
                 sz_out = args.max_prev_node + 1
+            if args.separate_termination_bit:
+                sz_out = sz_out - 1
 
             sz_in = d_model * n_ensemble
 
@@ -355,6 +377,11 @@ class Transformer(nn.Module):
                 self.trg_word_prj_1 = nn.Linear(sz_in, sz_intermed, bias=True)
                 self.trg_word_prj_2 = nn.Linear(sz_intermed, sz_intermed, bias=True)
                 self.trg_word_prj_3 = nn.Linear(sz_intermed, sz_out, bias=True)
+
+            if args.separate_termination_bit:
+                self.termination_bit_prj_1 = nn.Linear(sz_in, sz_in, bias=True)
+                self.termination_bit_prj_2 = nn.Linear(sz_in, 1, bias=True)
+
         else:
             raise NotImplementedError
 
@@ -478,7 +505,11 @@ class Transformer(nn.Module):
             if len(trg_seq.size()) == 3:
                 trg_seq = trg_seq.unsqueeze(2).repeat(1, 1, self.n_ensemble, 1)
 
-        enc_output, *_ = self.encoder(src_seq, src_mask, gr_mask, adj, gr_pos_enc_kernel)
+        if self.separate_termination_bit:
+            enc_output, semifinal_enc_output, *_ = self.encoder(src_seq, src_mask, gr_mask, adj, gr_pos_enc_kernel)
+        else:
+            enc_output, *_ = self.encoder(src_seq, src_mask, gr_mask, adj, gr_pos_enc_kernel)
+
         if self.args.only_encoder:
             dec_output = enc_output
         else:
@@ -488,6 +519,10 @@ class Transformer(nn.Module):
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
             if self.args.output_positional_embedding is not None:
                 dec_output = torch.cat([outputPositionalEncoding(dec_output, self.args.output_positional_embedding), dec_output], dim=2)
+            if self.separate_termination_bit:
+                semifinal_enc_output = semifinal_enc_output.reshape(semifinal_enc_output.size(0),
+                                                                    semifinal_enc_output.size(1),
+                                                                    self.n_ensemble * self.d_model)
 
         if self.args.use_MADE:
             # dec_output = self.before_MADE_norm( self.before_trg_word_MADE(dec_output))
@@ -501,6 +536,11 @@ class Transformer(nn.Module):
 
         if self.scale_prj:
             seq_logit *= self.d_model ** -0.5
+
+        if self.separate_termination_bit:
+            term_logit = self.termination_bit_prj_1(semifinal_enc_output)
+            term_logit = self.termination_bit_prj_2(term_logit)
+            seq_logit = torch.cat([term_logit, seq_logit], dim=-1)
 
         return seq_logit.view(-1, seq_logit.size(2)), dec_output
 
