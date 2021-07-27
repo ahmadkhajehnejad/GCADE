@@ -206,7 +206,7 @@ class BaseArgs():
             elif param == 'separateTerminationBit':
                 self.separate_termination_bit = True
             elif param == 'useminnumnodes':
-                self.use_min_num_nodes
+                self.use_min_num_nodes = True
             else:
                 raise Exception('Unknown note')
 
