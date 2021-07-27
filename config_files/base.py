@@ -120,6 +120,7 @@ class BaseArgs():
         self.use_termination_bit = True # False
         self.weight_positions = False # True
         self.separate_termination_bit = False # True
+        self.use_min_num_nodes = False # True
         #################################################################################
 
         self.note = note
@@ -204,6 +205,8 @@ class BaseArgs():
                 self.weight_positions = True
             elif param == 'separateTerminationBit':
                 self.separate_termination_bit = True
+            elif param == 'useminnumnodes':
+                self.use_min_num_nodes
             else:
                 raise Exception('Unknown note')
 

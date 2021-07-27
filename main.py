@@ -75,6 +75,7 @@ graph_test_len /= len(graphs_test)
 print('graph_test_len', graph_test_len)
 
 args.max_num_node = max([graphs[i].number_of_nodes() for i in range(len(graphs))])
+min_num_node = min([graphs[i].number_of_nodes() for i in range(len(graphs))])
 max_num_edge = max([graphs[i].number_of_edges() for i in range(len(graphs))])
 min_num_edge = min([graphs[i].number_of_edges() for i in range(len(graphs))])
 
@@ -540,6 +541,7 @@ def cal_loss(pred, gold, trg_pad_idx, args, model, smoothing=False):
 def generate_graph(gg_model, args):
 
     # return None
+    global min_par_idx
     gg_model.eval()
 
     if args.input_type == 'node_based':
@@ -552,6 +554,10 @@ def generate_graph(gg_model, args):
                                  for probs in pred_probs]).view([args.test_batch_size, args.max_seq_len]).to(args.device)
             src_seq[:, i + 1] = pred[:, i]
     elif args.input_type == 'preceding_neighbors_vector':
+
+        if args.use_min_num_nodes:
+            assert args.use_termination_bit
+
         src_seq = args.src_pad_idx * torch.ones((args.test_batch_size, args.max_seq_len, args.max_num_node + 1),
                                   dtype=torch.float32).to(args.device)
 
@@ -587,7 +593,9 @@ def generate_graph(gg_model, args):
                             gold[remainder_idx, j] = args.dontcare_input
                         else:
                             if j == 0 and args.estimate_num_nodes:
-                                gold[:,0] = args.zero_input
+                                gold[:, 0] = args.zero_input
+                            elif j == 0 and args.use_min_num_nodes and i < min_num_node:
+                                gold[:, 0] = args.zero_input
                             else:
                                 tmp = (torch.rand([remainder_idx.sum().item()], device=args.device) < pred_probs[
                                     remainder_idx,
@@ -620,6 +628,8 @@ def generate_graph(gg_model, args):
                         src_seq[remainder_idx, i+1,:][min_par_idx[remainder_idx, :]] = args.zero_input
                     if args.use_max_prev_node and i > args.max_prev_node:
                         src_seq[remainder_idx, i+1, 1:i - args.max_prev_node + 1] = args.dontcare_input
+                    if args.use_min_num_nodes and i < min_num_node:
+                        src_seq[remainder_idx, i+1, 0] = args.zero_input
                 if i == 0:
                     src_seq[remainder_idx, i+1, 0] = args.zero_input
                     break
@@ -687,6 +697,10 @@ def generate_graph(gg_model, args):
     return G_pred_list
 
 
+def load_pretrained_model_weights(gg_model, iter, args):
+    fname = '-'.join([s for s in args.fname.split('-') if s not in ('estnumnodes', 'useminnumnodes')])
+    fname = args.model_save_path + fname + '_' + args.graph_type + '_' + str(iter) + '.dat'
+    gg_model.load_state_dict(torch.load(fname))
 
 def just_generate(gg_model, dataset_train, args, gen_iter):
     if args.estimate_num_nodes:
@@ -703,8 +717,8 @@ def just_generate(gg_model, dataset_train, args, gen_iter):
         gg_model.num_nodes_prob = gg_model.num_nodes_prob / gg_model.num_nodes_prob.sum()
         print('estimation of num_nodes_prob finished')
 
-    fname = args.model_save_path + args.fname + '_' + args.graph_type + '_'  + str(gen_iter) + '.dat'
-    gg_model.load_state_dict(torch.load(fname))
+    load_pretrained_model_weights(gg_model, gen_iter, args)
+
 
     for sample_time in range(1,2): #4):
         print('     sample_time:', sample_time)
@@ -782,8 +796,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
     time_all = np.zeros(args.epochs)
     loss_buffer = []
     if args.epoch_train_start > 0:
-        fname = args.model_save_path + args.fname + '_' + args.graph_type + '_'  + str(args.epoch_train_start - 1) + '.dat'
-        gg_model.load_state_dict(torch.load(fname))
+        load_pretrained_model_weights(gg_model, args.epoch_train_start - 1, args)
     for epoch in range(args.epoch_train_start, args.epochs):
         time_start = time.time()
         running_loss = 0.0
