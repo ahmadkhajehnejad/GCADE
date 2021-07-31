@@ -176,10 +176,10 @@ if not os.path.exists(args.output_dir):
 
 
 
-def cal_performance(pred, gold, trg_pad_idx, args, model, smoothing=False):
+def cal_performance(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=False):
     ''' Apply label smoothing if needed '''
 
-    loss = cal_loss(pred, gold, trg_pad_idx, args, model, smoothing=smoothing)
+    loss = cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=smoothing)
     if args.input_type == 'node_based':
         pred = pred.max(1)[1]
         gold = gold.contiguous().view(-1)
@@ -194,7 +194,7 @@ def cal_performance(pred, gold, trg_pad_idx, args, model, smoothing=False):
         raise NotImplementedError
 
 
-def cal_loss(pred, gold, trg_pad_idx, args, model, smoothing=False):
+def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=False):
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
     if smoothing:
         if args.input_type == 'node_based':
@@ -269,6 +269,17 @@ def cal_loss(pred, gold, trg_pad_idx, args, model, smoothing=False):
             if args.allow_all_zeros or not args.use_termination_bit:
                 loss = loss_1
             else:
+                if args.use_MADE:
+                    gold_all_zeros = gold.clone()
+                    gold_all_zeros[gold == args.one_input] = args.zero_input
+                    if args.separate_termination_bit:
+                        gold_all_zeros = gold_all_zeros[:, :, 1:]
+                    pred_all_zeros = torch.sigmoid(model.trg_word_MADE(torch.cat([dec_output, gold_all_zeros], dim=2)))
+                    if args.separate_termination_bit:
+                        pred_all_zeros = torch.cat([pred[:,:,:1], pred_all_zeros], dim=2)
+                else:
+                    pred_all_zeros = pred
+
                 cond_0 = gold[:,:,0] != args.trg_pad_idx
                 cond_0[:, 0] = False
                 cond_2 = cond_0.unsqueeze(-1).repeat(1, 1, gold.size(-1))
@@ -276,7 +287,7 @@ def cal_loss(pred, gold, trg_pad_idx, args, model, smoothing=False):
                     cond_2 = cond_2 * cond_mpn
                 if args.use_bfs_incremental_parent_idx:
                     cond_2 = cond_2 * cond_bfs_par
-                pred_2 = torch.tril(pred * cond_2, diagonal=0)
+                pred_2 = torch.tril(pred_all_zeros * cond_2, diagonal=0)
                 gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
 
                 p_zero = torch.exp(-F.binary_cross_entropy(pred_2, gold_2, reduction='none').sum(-1))
@@ -620,7 +631,7 @@ def generate_graph(gg_model, args):
                             pred_probs[remainder_idx, i, :] = torch.sigmoid(tmp)
 
                     if args.separate_termination_bit:
-                        src_seq[remainder_idx, i + 1, 0] = (term_bits == 0) * args.zero_input + (term_bits == 1) * args.one_input
+                        src_seq[remainder_idx, i + 1, 0] = ((term_bits == 0) * args.zero_input + (term_bits == 1) * args.one_input).float()
                         src_seq[remainder_idx, i + 1, 1:i + 1] = gold[:, :i]
                     else:
                         src_seq[remainder_idx, i + 1, :i + 1] = gold[:, :i + 1]
@@ -761,8 +772,8 @@ def just_test(gg_model, dataset):
             gold = data['trg_seq'].contiguous().to(args.device)
             adj = data['adj'].to(args.device)
 
-            pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
+            pred, dec_output = gg_model(src_seq, trg_seq, gold, adj)
+            loss, *_ = cal_performance( pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
 
             test_running_loss += loss.item()
             tsz += src_seq.size(0)
@@ -841,8 +852,8 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
             adj = data['adj'].to(args.device)
 
             optimizer.zero_grad()
-            pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
+            pred, dec_output = gg_model(src_seq, trg_seq, gold, adj)
+            loss, *_ = cal_performance( pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
             optimizer.step_and_update_lr()
@@ -861,8 +872,8 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
             gold = data['trg_seq'].contiguous().to(args.device)
             adj = data['adj'].to(args.device)
 
-            pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance( pred, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
+            pred, dec_output = gg_model(src_seq, trg_seq, gold, adj)
+            loss, *_ = cal_performance( pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
 
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
@@ -878,8 +889,8 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
             gold = data['trg_seq'].contiguous().to(args.device)
             adj = data['adj'].to(args.device)
 
-            pred, *_ = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance(pred, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
+            pred, dec_output = gg_model(src_seq, trg_seq, gold, adj)
+            loss, *_ = cal_performance(pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
 
             test_running_loss += loss.item()
             testsz += src_seq.size(0)
