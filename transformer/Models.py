@@ -379,8 +379,9 @@ class Transformer(nn.Module):
                 self.trg_word_prj_3 = nn.Linear(sz_intermed, sz_out, bias=True)
 
             if args.separate_termination_bit:
-                self.termination_bit_prj_1 = nn.Linear(sz_in, sz_in, bias=True)
-                self.termination_bit_prj_2 = nn.Linear(sz_in, 1, bias=True)
+                sz_in_term = d_model * n_ensemble
+                self.termination_bit_prj_1 = nn.Linear(sz_in_term, sz_in_term, bias=True)
+                self.termination_bit_prj_2 = nn.Linear(sz_in_term, 1, bias=True)
 
         else:
             raise NotImplementedError
@@ -515,6 +516,7 @@ class Transformer(nn.Module):
         else:
             dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask, gr_mask, adj)
 
+
         if self.args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
             if self.args.output_positional_embedding is not None:
@@ -527,7 +529,10 @@ class Transformer(nn.Module):
         if self.args.use_MADE:
             # dec_output = self.before_MADE_norm( self.before_trg_word_MADE(dec_output))
             dec_output = torch.sigmoid( self.before_trg_word_MADE(dec_output))
-            seq_logit = self.trg_word_MADE(torch.cat([dec_output, gold], dim=2))
+            if self.args.separate_termination_bit:
+                seq_logit = self.trg_word_MADE(torch.cat([dec_output, gold[:, :, 1:]], dim=2))
+            else:
+                seq_logit = self.trg_word_MADE(torch.cat([dec_output, gold], dim=2))
         else:
             # seq_logit = self.trg_word_prj(dec_output)
             seq_logit = self.trg_word_prj_1(dec_output)

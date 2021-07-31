@@ -587,7 +587,13 @@ def generate_graph(gg_model, args):
                 num_trials += 1
 
                 if args.use_MADE:
-                    gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2)).to(args.device)
+                    if args.separate_termination_bit:
+                        gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2) - 1).to(args.device)
+                        term_bits = torch.rand([remainder_idx.sum().item()], device=args.device) < pred_probs[
+                            remainder_idx, i, 0]
+                        pred_probs = pred_probs[:, :, 1:]
+                    else:
+                        gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2)).to(args.device)
                     for j in range(i + 1):
                         if args.use_max_prev_node and i > args.max_prev_node and j > 0 and j < i - args.max_prev_node + 1:
                             gold[remainder_idx, j] = args.dontcare_input
@@ -613,7 +619,11 @@ def generate_graph(gg_model, args):
                                 tmp *= gg_model.d_model ** -0.5
                             pred_probs[remainder_idx, i, :] = torch.sigmoid(tmp)
 
-                    src_seq[remainder_idx, i + 1, :i + 1] = gold[:, :i+1]
+                    if args.separate_termination_bit:
+                        src_seq[remainder_idx, i + 1, 0] = (term_bits == 0) * args.zero_input + (term_bits == 1) * args.one_input
+                        src_seq[remainder_idx, i + 1, 1:i + 1] = gold[:, :i]
+                    else:
+                        src_seq[remainder_idx, i + 1, :i + 1] = gold[:, :i + 1]
                 else:
                     tmp = (torch.rand([remainder_idx.sum().item(), i + 1], device=args.device) < pred_probs[remainder_idx,
                                                                                          i, :i + 1]).float()
@@ -628,12 +638,12 @@ def generate_graph(gg_model, args):
                         src_seq[remainder_idx, i+1,:][min_par_idx[remainder_idx, :]] = args.zero_input
                     if args.use_max_prev_node and i > args.max_prev_node:
                         src_seq[remainder_idx, i+1, 1:i - args.max_prev_node + 1] = args.dontcare_input
-                    if args.use_min_num_nodes and i < min_num_node:
-                        src_seq[remainder_idx, i+1, 0] = args.zero_input
                 if i == 0:
                     src_seq[remainder_idx, i+1, 0] = args.zero_input
                     break
 
+                if args.use_min_num_nodes and i < min_num_node:
+                    src_seq[remainder_idx, i + 1, 0] = args.zero_input
 
                 if args.estimate_num_nodes:
                     tmp_new_finished_idx = remainder_idx & torch.tensor(len_gen == i).to(args.device)
