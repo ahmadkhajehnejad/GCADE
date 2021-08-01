@@ -358,7 +358,7 @@ class Transformer(nn.Module):
             sz_in = d_model * n_ensemble
 
             if args.use_MADE:
-                sz_in_new = max(sz_out // 10, 10)
+                sz_in_new = max(sz_out // args.MADE_dim_reduction_factor, 10)
                 self.before_trg_word_MADE = nn.Linear(sz_in, sz_in_new)
                 sz_in = sz_in_new
                 # self.before_MADE_norm = nn.LayerNorm(sz_in, eps=1e-6)

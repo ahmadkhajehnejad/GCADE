@@ -109,6 +109,7 @@ class BaseArgs():
         self.MADE_num_masks = 3  # 1
         self.MADE_natural_ordering = False  # True #
         self.MADE_num_hidden_layers = 1  # 3
+        self.MADE_dim_reduction_factor = 1
         self.n_layers = 2 # 6
         self.n_grlayers = 0
         self.no_model_layer_norm = False # True #
@@ -181,9 +182,13 @@ class BaseArgs():
                 if param[11:18] == 'natuord':
                     self.MADE_num_masks = int(param[10])
                     self.MADE_natural_ordering = bool(param[18])
+                    assert param[19:25] == 'dimred'
+                    self.MADE_dim_reduction_factor = int(param[25:])
                 elif param[12:19] == 'natuord':
                     self.MADE_num_masks = int(param[10:12])
                     self.MADE_natural_ordering = bool(param[19])
+                    assert param[20:26] == 'dimred'
+                    self.MADE_dim_reduction_factor = int(param[26:])
                 else:
                     raise Exception('Unknown note')
             elif param == 'estnumnodes':
