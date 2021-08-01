@@ -274,7 +274,10 @@ def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=False):
                     gold_all_zeros[gold == args.one_input] = args.zero_input
                     if args.separate_termination_bit:
                         gold_all_zeros = gold_all_zeros[:, :, 1:]
-                    pred_all_zeros = torch.sigmoid(model.trg_word_MADE(torch.cat([dec_output, gold_all_zeros], dim=2)))
+                    tmp = model.trg_word_MADE(torch.cat([dec_output, gold_all_zeros], dim=2))
+                    if model.scale_prj:
+                        tmp *= model.d_model ** -0.5
+                    pred_all_zeros = torch.sigmoid(tmp)
                     if args.separate_termination_bit:
                         pred_all_zeros = torch.cat([pred[:,:,:1], pred_all_zeros], dim=2)
                 else:
@@ -598,13 +601,13 @@ def generate_graph(gg_model, args):
                 num_trials += 1
 
                 if args.use_MADE:
-                    if args.separate_termination_bit:
-                        gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2) - 1).to(args.device)
-                        term_bits = torch.rand([remainder_idx.sum().item()], device=args.device) < pred_probs[
-                            remainder_idx, i, 0]
-                        pred_probs = pred_probs[:, :, 1:]
-                    else:
-                        gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2)).to(args.device)
+                    # if args.separate_termination_bit:
+                    #     gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2) - 1).to(args.device)
+                    #     term_bits = torch.rand([remainder_idx.sum().item()], device=args.device) < pred_probs[
+                    #         remainder_idx, i, 0]
+                    #     pred_probs = pred_probs[:, :, 1:]
+                    # else:
+                    gold = args.trg_pad_idx * torch.ones(remainder_idx.sum().item(), src_seq.size(2)).to(args.device)
                     for j in range(i + 1):
                         if args.use_max_prev_node and i > args.max_prev_node and j > 0 and j < i - args.max_prev_node + 1:
                             gold[remainder_idx, j] = args.dontcare_input
@@ -625,16 +628,18 @@ def generate_graph(gg_model, args):
                                     tmp[min_par_idx[remainder_idx, j]] = args.zero_input
                                 gold[:, j] = tmp
                         if j < i:
-                            tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], gold], dim=1))
-                            if gg_model.scale_prj:
-                                tmp *= gg_model.d_model ** -0.5
-                            pred_probs[remainder_idx, i, :] = torch.sigmoid(tmp)
+                            if args.separate_termination_bit:
+                                tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], gold[:,1:]], dim=1))
+                                if gg_model.scale_prj:
+                                    tmp *= gg_model.d_model ** -0.5
+                                pred_probs[remainder_idx, i, 1:] = torch.sigmoid(tmp)
+                            else:
+                                tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], gold], dim=1))
+                                if gg_model.scale_prj:
+                                    tmp *= gg_model.d_model ** -0.5
+                                pred_probs[remainder_idx, i, :] = torch.sigmoid(tmp)
 
-                    if args.separate_termination_bit:
-                        src_seq[remainder_idx, i + 1, 0] = ((term_bits == 0) * args.zero_input + (term_bits == 1) * args.one_input).float()
-                        src_seq[remainder_idx, i + 1, 1:i + 1] = gold[:, :i]
-                    else:
-                        src_seq[remainder_idx, i + 1, :i + 1] = gold[:, :i + 1]
+                    src_seq[remainder_idx, i + 1, :i + 1] = gold[:, :i + 1]
                 else:
                     tmp = (torch.rand([remainder_idx.sum().item(), i + 1], device=args.device) < pred_probs[remainder_idx,
                                                                                          i, :i + 1]).float()
