@@ -823,6 +823,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
     loss_buffer = []
     if args.epoch_train_start > 0:
         load_pretrained_model_weights(gg_model, args.epoch_train_start - 1, args)
+        optimizer.set_n_steps(args.epoch_train_start * args.batch_ratio)
     for epoch in range(args.epoch_train_start, args.epochs):
         time_start = time.time()
         running_loss = 0.0

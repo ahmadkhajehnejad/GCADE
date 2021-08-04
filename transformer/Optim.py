@@ -62,6 +62,9 @@ class MyScheduledOptim():
         self.lr_list = lr_list
         self.n_steps = 0
 
+    def set_n_steps(self, n_steps):
+        self.n_steps = n_steps
+
     def step_and_update_lr(self):
         "Step with the inner optimizer"
         self._update_learning_rate()
