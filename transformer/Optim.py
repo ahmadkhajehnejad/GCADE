@@ -56,23 +56,31 @@ class ScheduledOptim():
 class MyScheduledOptim():
     '''A simple wrapper class for learning rate scheduling'''
 
-    def __init__(self, optimizer, milestones, lr_list):
+    def __init__(self, optimizer, sep_optimizer, milestones, lr_list, sep_optimizer_start_step):
         self._optimizer = optimizer
+        self._sep_optimizer = sep_optimizer
         self.milestones = milestones
         self.lr_list = lr_list
         self.n_steps = 0
+        self._sep_optimizer_start_step = sep_optimizer_start_step
 
     def set_n_steps(self, n_steps):
         self.n_steps = n_steps
 
+    def _get_active_optimizer(self):
+        if self.n_steps >= self._sep_optimizer_start_step:
+            return self._sep_optimizer
+        else:
+            return self._optimizer
+
     def step_and_update_lr(self):
         "Step with the inner optimizer"
         self._update_learning_rate()
-        self._optimizer.step()
+        self._get_active_optimizer().step()
 
     def zero_grad(self):
         "Zero out the gradients with the inner optimizer"
-        self._optimizer.zero_grad()
+        self._get_active_optimizer().zero_grad()
 
     def _update_learning_rate(self):
         ''' Learning rate scheduling per step '''
@@ -87,6 +95,6 @@ class MyScheduledOptim():
                 else:
                     break
 
-        for param_group in self._optimizer.param_groups:
+        for param_group in self._get_active_optimizer().param_groups:
             param_group['lr'] = new_lr
 

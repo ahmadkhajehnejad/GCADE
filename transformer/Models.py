@@ -142,11 +142,15 @@ class Encoder(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
 
+        self.num_shared_parameters = len(list(self.parameters()))
+
         self.layer_stack = nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, no_layer_norm=args.no_model_layer_norm,
                          typed_edges=args.typed_edges, k_gr_att=k_graph_attention,
                          gr_att_batchnorm=args.batchnormalize_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
+
+        self.num_shared_parameters += int( (len(list(self.layer_stack)) / n_layers) * (n_layers - 1) )
 
         if args.separate_termination_bit:
             assert args.only_encoder
@@ -161,6 +165,7 @@ class Encoder(nn.Module):
             self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.scale_emb = scale_emb
         self.d_model = d_model
+
 
     def forward(self, src_seq, src_mask, gr_mask, adj, gr_pos_enc_kernel, return_attns=False):
 
@@ -404,6 +409,10 @@ class Transformer(nn.Module):
         if (not args.only_encoder) and emb_src_trg_weight_sharing:
             self.encoder.src_word_emb.weight = self.decoder.trg_word_emb.weight
 
+
+        # for p in self.encoder.parameters():
+        #     print(p.size())
+        # input()
 
     def forward(self, src_seq, trg_seq, gold, adj):
 

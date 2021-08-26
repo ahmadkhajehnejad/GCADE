@@ -169,7 +169,8 @@ print('model initiated.')
 #     args.lr_mul, args.d_model, args.n_warmup_steps)
 optimizer = MyScheduledOptim(
     optim.Adam(model.parameters(), betas=(0.9, 0.98), eps=1e-09),
-    args.milestones, args.lr_list)
+    optim.Adam(list(model.parameters())[model.encoder.num_shared_parameters:], betas=(0.9, 0.98), eps=1e-09),
+    args.milestones, args.lr_list, args.sep_optimizer_start_step)
 
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)

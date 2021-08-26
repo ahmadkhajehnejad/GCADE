@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 
 class BaseArgs():
-    def __init__(self, graph_type, note):
+    def __init__(self, graph_type, note, batch_ratio):
 
         self.graph_type = graph_type
 
@@ -122,6 +122,7 @@ class BaseArgs():
         self.weight_positions = False # True
         self.separate_termination_bit = False # True
         self.use_min_num_nodes = False # True
+        self.sep_optimizer_start_step = 1000000000
         #################################################################################
 
         self.note = note
@@ -212,6 +213,8 @@ class BaseArgs():
                 self.separate_termination_bit = True
             elif param == 'useminnumnodes':
                 self.use_min_num_nodes = True
+            elif param.startswith('sepoptepoch'):
+                self.sep_optimizer_start_step = batch_ratio * int(param[11:])
             else:
                 raise Exception('Unknown note')
 
