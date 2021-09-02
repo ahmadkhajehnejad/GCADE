@@ -209,8 +209,12 @@ class BaseArgs():
                 self.use_termination_bit = False
             elif param == 'weightpositions':
                 self.weight_positions = True
-            elif param == 'separateTerminationBit':
+            elif param.startswith('separateTerminationBit'):
                 self.separate_termination_bit = True
+                if len(param) > 22:
+                    self.sepTermBitNumLayers = int(param[22:])
+                else:
+                    self.sepTermBitNumLayers = 1
             elif param == 'useminnumnodes':
                 self.use_min_num_nodes = True
             elif param.startswith('sepoptepoch'):

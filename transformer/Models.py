@@ -150,15 +150,23 @@ class Encoder(nn.Module):
                          gr_att_batchnorm=args.batchnormalize_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
 
-        self.num_shared_parameters += int( (len(list(self.layer_stack)) / n_layers) * (n_layers - 1) )
+        if args.separate_termination_bit:
+            self.num_shared_parameters += int( (len(list(self.layer_stack)) / n_layers) * (n_layers - args.sepTermBitNumLayers) )
+        else:
+            self.num_shared_parameters = len(list(self.layer_stack))
 
         if args.separate_termination_bit:
             assert args.only_encoder
-            self.termination_bit_layer = EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v,
-                                                      no_layer_norm=args.no_model_layer_norm,
-                                                      typed_edges=args.typed_edges, k_gr_att=k_graph_attention,
-                                                      gr_att_batchnorm=args.batchnormalize_graph_attention,
-                                                      dropout=dropout)
+            assert args.sepTermBitNumLayers < n_layers
+            self.termination_bit_layer_stack = nn.ModuleList([
+                EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v,
+                             no_layer_norm=args.no_model_layer_norm,
+                             typed_edges=args.typed_edges, k_gr_att=k_graph_attention,
+                             gr_att_batchnorm=args.batchnormalize_graph_attention,
+                             dropout=dropout)
+                for _ in range(args.sepTermBitNumLayers)
+            ])
+            self.sepTermBitNumLayers = args.sepTermBitNumLayers
         self.separate_termination_bit = args.separate_termination_bit
 
         if not args.no_model_layer_norm:
@@ -208,16 +216,21 @@ class Encoder(nn.Module):
             else:
                 enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=src_mask, gr_mask=gr_mask, adj=adj)
             enc_slf_attn_list += [enc_slf_attn] if return_attns else []
-            if self.separate_termination_bit and i == len(self.layer_stack) - 2:
-                semifinal_enc_output = enc_output
+            if self.separate_termination_bit and i == len(self.layer_stack) - self.sepTermBitNumLayers - 1:
+                enc_output_termination_bit = enc_output
+
+        if self.separate_termination_bit:
+            for i, sep_layer in enumerate(self.termination_bit_layer_stack):
+                enc_output_termination_bit, enc_termbit_attn = sep_layer(enc_output_termination_bit, slf_attn_mask=src_mask, gr_mask=gr_mask, adj=adj)
+                enc_slf_attn_list += [enc_termbit_attn] if return_attns else []
 
         if return_attns:
             if self.separate_termination_bit:
-                return enc_output, semifinal_enc_output, enc_slf_attn_list
+                return enc_output, enc_output_termination_bit, enc_slf_attn_list
             return enc_output, enc_slf_attn_list
 
         if self.separate_termination_bit:
-            return enc_output, semifinal_enc_output
+            return enc_output, enc_output_termination_bit
         return enc_output,
 
 
