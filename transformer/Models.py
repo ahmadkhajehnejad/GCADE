@@ -399,7 +399,8 @@ class Transformer(nn.Module):
             if args.separate_termination_bit:
                 sz_in_term = d_model * n_ensemble
                 self.termination_bit_prj_1 = nn.Linear(sz_in_term, sz_in_term, bias=True)
-                self.termination_bit_prj_2 = nn.Linear(sz_in_term, 1, bias=True)
+                self.termination_bit_prj_2 = nn.Linear(sz_in_term, sz_in_term, bias=True)
+                self.termination_bit_prj_3 = nn.Linear(sz_in_term, 1, bias=True)
 
         else:
             raise NotImplementedError
@@ -566,7 +567,8 @@ class Transformer(nn.Module):
 
         if self.separate_termination_bit:
             term_logit = self.termination_bit_prj_1(semifinal_enc_output)
-            term_logit = self.termination_bit_prj_2(term_logit)
+            term_logit = self.termination_bit_prj_2(nn.functional.relu(term_logit))
+            term_logit = self.termination_bit_prj_3(nn.functional.relu(term_logit))
             seq_logit = torch.cat([term_logit, seq_logit], dim=-1)
 
         return seq_logit.view(-1, seq_logit.size(2)), dec_output
