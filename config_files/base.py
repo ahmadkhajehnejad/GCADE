@@ -123,6 +123,7 @@ class BaseArgs():
         self.separate_termination_bit = False # True
         self.use_min_num_nodes = False # True
         self.sep_optimizer_start_step = 1000000000
+        self.weight_termination_bit = False
         #################################################################################
 
         self.note = note
@@ -219,6 +220,11 @@ class BaseArgs():
                 self.use_min_num_nodes = True
             elif param.startswith('sepoptepoch'):
                 self.sep_optimizer_start_step = batch_ratio * int(param[11:])
+            elif param.startswith('weightterminationbit'):
+                tmp = param.split(',')
+                self.weight_termination_bit = True
+                self.termination_bit_weight = float(tmp[1])
+                self.termination_bit_weight_last_epoch = int(tmp[2])
             else:
                 raise Exception('Unknown note')
 

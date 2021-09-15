@@ -177,10 +177,10 @@ if not os.path.exists(args.output_dir):
 
 
 
-def cal_performance(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=False):
+def cal_performance(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_weight=None, smoothing=False):
     ''' Apply label smoothing if needed '''
 
-    loss = cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=smoothing)
+    loss = cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_weight, smoothing)
     if args.input_type == 'node_based':
         pred = pred.max(1)[1]
         gold = gold.contiguous().view(-1)
@@ -195,7 +195,7 @@ def cal_performance(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=
         raise NotImplementedError
 
 
-def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=False):
+def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_weight=None, smoothing=False):
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
     if smoothing:
         if args.input_type == 'node_based':
@@ -260,11 +260,21 @@ def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=False):
             gold_1[ind_0] = 0
             gold_1[ind_1] = 1
 
+            assert not (args.weight_positions and (termination_bit_weight is not None))
+
             if args.weight_positions:
                 loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='none').sum(-1)
                 loss_1 = loss_1 * model.positions_weights.view(1,-1)
                 loss_1 = loss_1.sum()
+            elif termination_bit_weight is not None:
+                loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='none')
+                loss_1[:,:,0] = loss_1[:,:,0] * termination_bit_weight
+                loss_1 = loss_1.sum()
             else:
+                # tmp = F.binary_cross_entropy(pred_1, gold_1, reduction='none')
+                # termination_loss = tmp[:,:,0].sum().item() / tmp.size(0)
+                # edges_loss = tmp[:, :, 1:].sum().item() / tmp.size(0)
+                # loss_1 = tmp.sum()
                 loss_1 = F.binary_cross_entropy(pred_1, gold_1, reduction='sum')
 
             if args.allow_all_zeros or not args.use_termination_bit:
@@ -300,6 +310,7 @@ def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, smoothing=False):
                 if args.weight_positions:
                     loss_2 = loss_2 * model.positions_weights
                 loss_2 = loss_2.sum()
+                # print('\n', 'termination:', termination_loss, '      edges:', edges_loss, '      loss2:', loss_2.item() / cond_0.size(0))
                 loss = loss_1 + loss_2
         elif args.input_type == 'max_prev_node_neighbors_vec':
 
@@ -860,7 +871,16 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
 
             optimizer.zero_grad()
             pred, dec_output = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance( pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
+            if (not args.weight_termination_bit) or (epoch > args.termination_bit_weight_last_epoch):
+                loss, *_ = cal_performance( pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
+            else:
+                tmp = (args.termination_bit_weight_last_epoch - epoch) / args.termination_bit_weight_last_epoch
+                termination_bit_weight = (tmp ** 2) * (args.termination_bit_weight - 1) + 1
+
+                print('                   tbw: ', termination_bit_weight)
+                loss, *_ = cal_performance( pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model,
+                                            termination_bit_weight=termination_bit_weight, smoothing=False)
+
             # print('  ', loss.item() / input_nodes.size(0))
             loss.backward()
             optimizer.step_and_update_lr()
