@@ -37,6 +37,17 @@ def outputPositionalEncoding(data, encType):
     else:
         raise Exception('Unknown outputPositionalEncoding type:' + str(encType))
 
+def get_lengths(seq, args, binary_nums):
+    assert args.use_termination_bit
+    tmp = seq[:,:,0,0] == args.one_input
+    cnt = torch.arange(0,tmp.size(1)).long().to(args.device).reshape(1,-1).repeat(tmp.size(0), 1)
+    ind  = cnt[tmp].reshape(-1)
+    res = binary_nums[ind, :]
+    return res.reshape(seq.size(0), 1, -1).repeat(1,seq.size(1),1)
+
+def binary(x, bits):
+    mask = 2**torch.arange(bits).to(x.device, x.dtype)
+    return x.unsqueeze(-1).bitwise_and(mask).ne(0).byte()
 
 class PositionalEncoding(nn.Module):
 
@@ -325,6 +336,10 @@ class Transformer(nn.Module):
 
         super().__init__()
 
+        if args.feed_graph_length:
+            l = int(np.ceil(np.log2(args.max_seq_len)))
+            self.binary_nums = binary( torch.arange(0, args.max_seq_len).int().to(args.device), l)
+
         if args.estimate_num_nodes:
             self.num_nodes_prob = None
         if args.weight_positions:
@@ -383,6 +398,9 @@ class Transformer(nn.Module):
 
             if args.output_positional_embedding:
                 sz_in = sz_in + args.max_seq_len
+
+            if args.feed_graph_length:
+                sz_in = sz_in + int(np.ceil(np.log2(args.max_seq_len)))
 
             sz_intermed = max(sz_in, sz_out)
 
@@ -544,6 +562,10 @@ class Transformer(nn.Module):
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
             if self.args.output_positional_embedding is not None:
                 dec_output = torch.cat([outputPositionalEncoding(dec_output, self.args.output_positional_embedding), dec_output], dim=2)
+            if self.args.feed_graph_length:
+                # print(dec_output.size(),  get_lengths(src_seq, self.args, self.binary_nums).size())
+                # akjhskjdhf
+                dec_output = torch.cat([get_lengths(src_seq, self.args, self.binary_nums).float(), dec_output], dim=2)
             if self.separate_termination_bit:
                 semifinal_enc_output = semifinal_enc_output.reshape(semifinal_enc_output.size(0),
                                                                     semifinal_enc_output.size(1),

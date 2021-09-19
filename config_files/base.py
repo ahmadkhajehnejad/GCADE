@@ -124,6 +124,7 @@ class BaseArgs():
         self.use_min_num_nodes = False # True
         self.sep_optimizer_start_step = 1000000000
         self.weight_termination_bit = False
+        self.feed_graph_length = False
         #################################################################################
 
         self.note = note
@@ -225,6 +226,8 @@ class BaseArgs():
                 self.weight_termination_bit = True
                 self.termination_bit_weight = float(tmp[1])
                 self.termination_bit_weight_last_epoch = int(tmp[2])
+            elif param == 'feedgraphlength':
+                self.feed_graph_length = True
             else:
                 raise Exception('Unknown note')
 

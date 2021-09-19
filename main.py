@@ -250,7 +250,7 @@ def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_w
                 cond_bfs_par = torch.tril(cond_bfs_par, diagonal=0)
                 cond_1 = cond_1 * cond_bfs_par
 
-            if not args.use_termination_bit:
+            if (not args.use_termination_bit) or args.feed_graph_length:
                 cond_1[:, :, 0] = False
 
             pred_1 = torch.tril(pred * cond_1, diagonal=0)
@@ -301,6 +301,8 @@ def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_w
                     cond_2 = cond_2 * cond_mpn
                 if args.use_bfs_incremental_parent_idx:
                     cond_2 = cond_2 * cond_bfs_par
+                if args.feed_graph_length:
+                    cond_2[:,:,0] = False
                 pred_2 = torch.tril(pred_all_zeros * cond_2, diagonal=0)
                 gold_2 = torch.zeros(gold.size(0), gold.size(1), gold.size(2), device=gold.device)
 
@@ -565,6 +567,9 @@ def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_w
 #     return G_pred_list
 
 def generate_graph(gg_model, args):
+
+    if args.feed_graph_length:
+        assert args.estimate_num_nodes
 
     # return None
     global min_par_idx

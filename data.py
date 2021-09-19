@@ -306,6 +306,7 @@ def my_decode_adj(generated_seq, args):
             generated_seq[1, 0] = 0
         if generated_seq[1, 1] == 0:
             print('       __ERR: no edge.')
+            generated_seq[1, 1] = 1
         adj = np.zeros([args.max_num_node, args.max_num_node])
         for i in range(generated_seq.shape[0]):
             if generated_seq[i, 0] == 1:
@@ -572,7 +573,7 @@ class MyGraph_sequence_sampler_pytorch(torch.utils.data.Dataset):
             self.max_seq_len = self.n + self.e + 2 # self.n add_node charachters, self.e node_idx charachters,
                                                    # 1 termination charachter and 1 for positional shift of the source sequence
         elif self.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec' ]:
-            self.max_seq_len = self.n + 1 # 1 for positional shift of the source sequence
+            self.max_seq_len = self.n + 2 # 1 for positional shift of the source sequence and 1 for termination bit
         else:
             raise NotImplementedError
 
