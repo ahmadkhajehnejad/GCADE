@@ -598,6 +598,10 @@ def generate_graph(gg_model, args):
 
         if args.estimate_num_nodes:
             len_gen = np.random.choice(np.arange(1,args.max_num_node + 1), args.test_batch_size, True, gg_model.num_nodes_prob[1:])
+            if args.feed_graph_length:
+                for i in range(src_seq.size(0)):
+                    src_seq[i, len_gen[i]+1, 0] = args.one_input
+
         not_finished_idx = torch.ones([src_seq.size(0)]).bool().to(args.device)
         damaged_idx = torch.zeros([src_seq.size(0)]).bool().to(args.device)
         if args.use_bfs_incremental_parent_idx:
