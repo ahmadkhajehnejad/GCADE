@@ -700,6 +700,8 @@ def generate_graph(gg_model, args):
                     remainder_idx = remainder_idx & ((src_seq[:, i + 1, : i + 1] == args.one_input).sum(-1) == 0)
                     if num_trials >= args.max_num_generate_trials:
                         # print('   reached max_num_gen_trials   dim:', i, '   num remainder:', remainder_idx.detach().cpu().sum().item())
+                        if i+2 < args.max_seq_len:
+                            src_seq[remainder_idx, i+2:, 0] = args.src_pad_idx
                         src_seq[remainder_idx, i+1, 0] = args.one_input
                         damaged_idx[remainder_idx] = True
                         remainder_idx[:] = False
