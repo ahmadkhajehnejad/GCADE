@@ -125,6 +125,7 @@ class BaseArgs():
         self.sep_optimizer_start_step = 1000000000
         self.weight_termination_bit = False
         self.feed_graph_length = False
+        self.exact_generation = False
         #################################################################################
 
         self.note = note
@@ -228,6 +229,8 @@ class BaseArgs():
                 self.termination_bit_weight_last_epoch = int(tmp[2])
             elif param == 'feedgraphlength':
                 self.feed_graph_length = True
+            elif param == 'exactgen':
+                self.exact_generation = True
             else:
                 raise Exception('Unknown note')
 

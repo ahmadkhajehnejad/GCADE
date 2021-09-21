@@ -563,8 +563,6 @@ class Transformer(nn.Module):
             if self.args.output_positional_embedding is not None:
                 dec_output = torch.cat([outputPositionalEncoding(dec_output, self.args.output_positional_embedding), dec_output], dim=2)
             if self.args.feed_graph_length:
-                # print(dec_output.size(),  get_lengths(src_seq, self.args, self.binary_nums).size())
-                # akjhskjdhf
                 dec_output = torch.cat([get_lengths(src_seq, self.args, self.binary_nums).float(), dec_output], dim=2)
             if self.separate_termination_bit:
                 semifinal_enc_output = semifinal_enc_output.reshape(semifinal_enc_output.size(0),
