@@ -560,6 +560,8 @@ class Transformer(nn.Module):
 
         if self.args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
+            if self.args.use_MADE:
+                dec_output = torch.sigmoid(self.before_trg_word_MADE(dec_output))
             if self.args.output_positional_embedding is not None:
                 dec_output = torch.cat([outputPositionalEncoding(dec_output, self.args.output_positional_embedding), dec_output], dim=2)
             if self.args.feed_graph_length:
@@ -570,8 +572,6 @@ class Transformer(nn.Module):
                                                                     self.n_ensemble * self.d_model)
 
         if self.args.use_MADE:
-            # dec_output = self.before_MADE_norm( self.before_trg_word_MADE(dec_output))
-            dec_output = torch.sigmoid( self.before_trg_word_MADE(dec_output))
             if self.args.separate_termination_bit:
                 seq_logit = self.trg_word_MADE(torch.cat([dec_output, gold[:, :, 1:]], dim=2))
             else:
