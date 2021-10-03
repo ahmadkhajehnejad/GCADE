@@ -294,7 +294,10 @@ def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_w
                 else:
                     pred_all_zeros = pred
 
-                cond_0 = gold[:,:,0] != args.trg_pad_idx
+                if args.feed_graph_length:
+                    cond_0 = gold[:,:,0] == args.zero_input
+                else:
+                    cond_0 = gold[:,:,0] != args.trg_pad_idx
                 cond_0[:, 0] = False
                 cond_2 = cond_0.unsqueeze(-1).repeat(1, 1, gold.size(-1))
                 if args.use_max_prev_node:
