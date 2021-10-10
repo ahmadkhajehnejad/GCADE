@@ -68,6 +68,12 @@ class MyScheduledOptim():
         self.n_steps = n_steps
 
     def _get_active_optimizer(self):
+        '''
+        if np.mod(self.n_steps, 5) != 0:
+            return self._sep_optimizer
+        else:
+            return self._optimizer
+        '''
         if self.n_steps >= self._sep_optimizer_start_step:
             return self._sep_optimizer
         else:

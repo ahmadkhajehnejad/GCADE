@@ -23,6 +23,7 @@ class MaskedLinear(nn.Linear):
         
     def forward(self, input):
         return F.linear(input, self.mask * self.weight, self.bias)
+        # return F.linear(input, self.weight, self.bias)
 
 class MADE(nn.Module):
     def __init__(self, nin_extra, hidden_sizes, nout, num_masks=1, natural_ordering=False):
@@ -45,15 +46,18 @@ class MADE(nn.Module):
         # assert self.nout % self.nin == 0, "nout must be integer multiple of nin"
         
         # define a simple MLP neural net
-        self.net = []
-        hs = [nout + nin_extra] + hidden_sizes + [nout]
+        self.net_1 = []
+        hs = [nout + nin_extra] + hidden_sizes # + [nout]
+        # hs = [nin_extra] + hidden_sizes + [nout]
         for h0,h1 in zip(hs, hs[1:]):
-            self.net.extend([
+            self.net_1.extend([
                     MaskedLinear(h0, h1),
                     nn.ReLU(),
                 ])
-        self.net.pop() # pop the last ReLU for the output layer
-        self.net = nn.Sequential(*self.net)
+        # self.net_1.pop() # pop the last ReLU for the output layer
+        self.net_1 = nn.Sequential(*self.net_1)
+
+        self.net_2 = MaskedLinear(nout + nin_extra + hidden_sizes[-1], nout)
 
 
         # seeds for orders/connectivities of the model ensemble
@@ -80,20 +84,26 @@ class MADE(nn.Module):
         self.m[-2][t] = self.m[-2][0]
         self.m[-2][0] = 0
         self.m[-1] = np.concatenate([-1 * np.ones(self.nin_extra), self.m[-2].copy()])
+        # self.m[-1] = -1 * np.ones(self.nin_extra)
         for l in range(L):
             self.m[l] = rng.randint(self.m[l-1].min(), self.nout-1, size=self.hidden_sizes[l])
+            # self.m[l] = -1 * np.ones([self.hidden_sizes[l]])
         
         # construct the mask matrices
         masks = [self.m[l-1][:,None] <= self.m[l][None,:] for l in range(L)]
-        masks.append(self.m[L-1][:,None] < self.m[-2][None,:])
+        masks.append( np.concatenate([self.m[-1].copy(), self.m[L-1]])[:,None] < self.m[-2][None,:])
 
         # set the masks in all MaskedLinear layers
-        layers = [l for l in self.net.modules() if isinstance(l, MaskedLinear)]
+        layers = [l for l in self.net_1.modules() if isinstance(l, MaskedLinear)] + [self.net_2]
         for l,m in zip(layers, masks):
             l.set_mask(m)
     
     def forward(self, x):
-        return self.net(x)
+        y_1 = self.net_1(x)
+        return self.net_2(torch.cat([x, y_1], dim=2))
+        #return self.net(x)
+        # return self.net(x[:,:,:self.nin_extra])
+        # return x[:,:,-self.nout:] * 100
 
 # ------------------------------------------------------------------------------
 

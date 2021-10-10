@@ -16,6 +16,7 @@ import torch.nn.functional as F
 from utils import save_graph_list
 import pickle
 import argparse
+from utils import prepare_for_MADE
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
@@ -222,6 +223,8 @@ def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_w
                 raise NotImplementedError
 
             pred = torch.sigmoid(pred).view(-1, args.max_seq_len, pred.size(-1))
+            # eps = 1e-9
+            # print('#################### ', ((pred > eps) & (pred < 1-eps)).sum().item(), (pred <= eps).sum().item(), (pred >= 1-eps).sum().item())
 
             cond_1 = gold != args.trg_pad_idx
             if args.use_max_prev_node:
@@ -285,7 +288,7 @@ def cal_loss(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_w
                     gold_all_zeros[gold == args.one_input] = args.zero_input
                     if args.separate_termination_bit:
                         gold_all_zeros = gold_all_zeros[:, :, 1:]
-                    tmp = model.trg_word_MADE(torch.cat([dec_output, gold_all_zeros], dim=2))
+                    tmp = model.trg_word_MADE(torch.cat([dec_output, prepare_for_MADE(gold_all_zeros, args)], dim=2))
                     if model.scale_prj:
                         tmp *= model.d_model ** -0.5
                     pred_all_zeros = torch.sigmoid(tmp)
@@ -513,7 +516,7 @@ def generate_graph_exact(gg_model, args):
                                                                                                   # torch.tensor([0.]).to(args.device)))
                                                                                                   torch.tensor([1e-9]).to(args.device)))
             if args.use_MADE and j < i:
-                tmp = gg_model.trg_word_MADE(torch.cat([dec_output[:, i, :], gold], dim=1))
+                tmp = gg_model.trg_word_MADE(torch.cat([dec_output[:, i, :], prepare_for_MADE(gold, args)], dim=1))
                 if gg_model.scale_prj:
                     tmp *= gg_model.d_model ** -0.5
                 pred_probs[:, i, :] = torch.sigmoid(tmp)
@@ -647,12 +650,12 @@ def generate_graph_rejection(gg_model, args):
                                 gold[:, j] = tmp
                         if j < i:
                             if args.separate_termination_bit:
-                                tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], gold[:,1:]], dim=1))
+                                tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], prepare_for_MADE(gold[:,1:], args)], dim=1))
                                 if gg_model.scale_prj:
                                     tmp *= gg_model.d_model ** -0.5
                                 pred_probs[remainder_idx, i, 1:] = torch.sigmoid(tmp)
                             else:
-                                tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], gold], dim=1))
+                                tmp = gg_model.trg_word_MADE(torch.cat([dec_output[remainder_idx, i, :], prepare_for_MADE(gold, args)], dim=1))
                                 if gg_model.scale_prj:
                                     tmp *= gg_model.d_model ** -0.5
                                 pred_probs[remainder_idx, i, :] = torch.sigmoid(tmp)

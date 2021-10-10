@@ -17,20 +17,22 @@ class Args_evaluate():
         # self.model_name_all = ['GraphRNN_MLP','GraphRNN_RNN','Internal','Noise']
         # self.model_name_all = ['E-R', 'B-A']
         # self.model_name_all = ['GraphRNN_RNN']
-        self.model_name_all = ['Gransformer-6layers-nomodellayernorm-estnumnodes-gattk16log']
+        self.model_name_all = ['Gransformer-6layers-nomodellayernorm-feedgraphlength-MADEhl3msk1natuord1dimred1-estnumnodes-exactgen'] # -bfsincpar-typededges-gattk16log -separateTerminationBit] # -allowAllZeros  'Gransformer-6layers-nomodellayernorm-separateTerminationBit'] # '] # -allowAllZeros-useminnumnodes'] # -separateTerminationBit'] # -weightpositions'] # -posoutputtril'] # -posoutputoneHot'] # -grposenck16log'] # '] # -grposenck4log'] # -noTerminationBit-gattk6log'] # '] #  '] # '] # '] # '] # -typededges'] # -gattk16log']
         # self.model_name_all = ['Baseline_DGMG']
 
         # list of dataset to evaluate
         # use a list of 1 element to evaluate a single dataset
-        self.dataset_name_all = ['DD'] # ['caveman', 'grid', 'barabasi', 'citeseer', 'DD']
+        self.dataset_name_all = ['citeseer'] # ['caveman', 'grid', 'barabasi', 'citeseer', 'DD']
         # self.dataset_name_all = ['citeseer_small'] #['citeseer']
         # self.dataset_name_all = ['citeseer_small','caveman_small']
         # self.dataset_name_all = ['barabasi_noise0','barabasi_noise2','barabasi_noise4','barabasi_noise6','barabasi_noise8','barabasi_noise10']
         # self.dataset_name_all = ['caveman_small', 'ladder_small', 'grid_small', 'ladder_small', 'enzymes_small', 'barabasi_small','citeseer_small']
 
-        self.epoch_start=3000
-        self.epoch_end=3001
-        self.epoch_step=750
+        # self.epoch_start=50 # 2650
+        # self.epoch_end=1001 # 2651
+        # self.epoch_step=950 # 1000
+        # self.selected_epochs = list(range(50:1001:950))
+        self.selected_epochs = [700] # [2600, 2800, 3000] # [2600, 2800, 3000] # [600, 800, 1000] # , 2600, 2800, 3000]
 
 def find_nearest_idx(array,value):
     idx = (np.abs(array-value)).argmin()
@@ -168,7 +170,7 @@ def eval_single_list(graphs, dir_input, dataset_name):
     print('clustering: ', mmd_clustering)
     print('orbits: ', mmd_4orbits)
 
-def evaluation_epoch(dir_input, fname_output, model_name, dataset_name, args, is_clean=True, epoch_start=1000,epoch_end=3001,epoch_step=100):
+def evaluation_epoch(dir_input, fname_output, model_name, dataset_name, args, is_clean=True, selected_epochs=list(range(1000, 3001, 100))): # epoch_start=1000,epoch_end=3001,epoch_step=100):
     with open(fname_output, 'w+') as f:
         # f.write('sample_time,epoch,degree_validate,clustering_validate,orbits4_validate,degree_test,clustering_test,orbits4_test\n')
         f.write('sample_time,\tepoch,\tdegree_test,\tclustering_test,\torbits4_test\n')
@@ -211,7 +213,7 @@ def evaluation_epoch(dir_input, fname_output, model_name, dataset_name, args, is
         # if 'GraphRNN' in model_name:
         if model_name.startswith('Gransformer'):
             # read test graph
-            for epoch in range(epoch_start,epoch_end,epoch_step):
+            for epoch in selected_epochs: # range(epoch_start,epoch_end,epoch_step):
                 for sample_time in range(1,2):# ,4):
                     # get filename
                     # fname_pred = dir_input + model_name + '_' + dataset_name + '_' + str(args.num_layers) + '_' + str(hidden) + '_pred_' + str(epoch) + '_' + str(sample_time) + '.dat'
@@ -333,7 +335,7 @@ def evaluation_epoch(dir_input, fname_output, model_name, dataset_name, args, is
         # get performance for baseline approaches
         if 'Baseline' in model_name:
             # read test graph
-            for epoch in range(epoch_start, epoch_end, epoch_step):
+            for epoch in selected_epochs: #range(epoch_start, epoch_end, epoch_step):
                 # get filename
                 fname_pred = dir_input + model_name + '_' + dataset_name + '_' + str(
                     64) + '_pred_' + str(epoch) + '.dat'
@@ -397,8 +399,8 @@ def evaluation(args_evaluate,dir_input, dir_output, model_name_all, dataset_name
                 print(dir_output+model_name+'_'+dataset_name+'.csv exists!')
                 logging.info(dir_output+model_name+'_'+dataset_name+'.csv exists!')
                 continue
-            evaluation_epoch(dir_input,fname_output,model_name,dataset_name,args,is_clean=True, epoch_start=args_evaluate.epoch_start,epoch_end=args_evaluate.epoch_end,epoch_step=args_evaluate.epoch_step)
-            # evaluation_epoch(dir_input,fname_output,model_name,dataset_name,args,is_clean=False, epoch_start=args_evaluate.epoch_start,epoch_end=args_evaluate.epoch_end,epoch_step=args_evaluate.epoch_step)
+            evaluation_epoch(dir_input,fname_output,model_name,dataset_name,args,is_clean=True, selected_epochs=args_evaluate.selected_epochs) # epoch_start=args_evaluate.epoch_start,epoch_end=args_evaluate.epoch_end,epoch_step=args_evaluate.epoch_step)
+            # evaluation_epoch(dir_input,fname_output,model_name,dataset_name,args,is_clean=False, selected_epochs=args_evaluate.selected_epochs) # , epoch_start=args_evaluate.epoch_start,epoch_end=args_evaluate.epoch_end,epoch_step=args_evaluate.epoch_step)
 
 
 

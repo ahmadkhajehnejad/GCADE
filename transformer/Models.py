@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 from transformer.Layers import EncoderLayer, DecoderLayer
 from made.made import MADE
+from utils import prepare_for_MADE
 
 
 __author__ = "Yu-Hsiang Huang"
@@ -93,7 +94,7 @@ class GraphPositionalEncoding(nn.Module):
             self.layer_norm = nn.LayerNorm(k_gr_kernel, eps=1e-3)
         self.linear_1 = nn.Linear(k_gr_kernel, k_gr_kernel, bias=True)
         self.linear_2 = nn.Linear(k_gr_kernel, 1, bias=True)
-        self.prj = nn.Linear(args.max_num_node + 1, d_hid, bias = True)
+        self.prj = nn.Linear(args.max_num_node + 2, d_hid, bias = True)
 
     def forward(self, x, gr_kernel):
         input = gr_kernel.transpose(-3, -2).transpose(-2,-1)
@@ -392,9 +393,10 @@ class Transformer(nn.Module):
 
             if args.use_MADE:
                 sz_in_new = max(self.d_model // args.MADE_dim_reduction_factor, 10)
-                self.before_trg_word_MADE = nn.Linear(sz_in, sz_in_new)
+                # self.before_trg_word_MADE = nn.Linear(sz_in, sz_in_new)
+                # self.before_trg_word_MADE = nn.Sequential(*[nn.Linear(sz_in, sz_in), nn.ReLU(), nn.Linear(sz_in, sz_in), nn.ReLU(), nn.Linear(sz_in, sz_in_new)])
                 sz_in = sz_in_new
-                # self.before_MADE_norm = nn.LayerNorm(sz_in, eps=1e-6)
+                # self.before_MADE_norm = nn.LayerNorm(sz_in_new, eps=1e-6)
 
             if args.output_positional_embedding:
                 sz_in = sz_in + args.max_seq_len
@@ -406,6 +408,7 @@ class Transformer(nn.Module):
 
             if args.use_MADE:
                 hidden_sizes = [sz_intermed * 3 // 2] * args.MADE_num_hidden_layers
+                # hidden_sizes = [sz_out * 3 // 2] * args.MADE_num_hidden_layers
                 self.trg_word_MADE = MADE(sz_in, hidden_sizes, sz_out, num_masks=args.MADE_num_masks,
                                           natural_ordering=args.MADE_natural_ordering)
             else:
@@ -560,8 +563,12 @@ class Transformer(nn.Module):
 
         if self.args.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
             dec_output = dec_output.reshape(dec_output.size(0), dec_output.size(1), self.n_ensemble * self.d_model)
-            if self.args.use_MADE:
-                dec_output = torch.sigmoid(self.before_trg_word_MADE(dec_output))
+            # if self.args.use_MADE:
+                # dec_output = torch.sigmoid(self.before_trg_word_MADE(dec_output))
+                # dec_output = torch.relu(self.before_trg_word_MADE(dec_output))
+                # dec_output = torch.sigmoid(self.before_trg_word_MADE(dec_output)) * 2 - 1
+                # dec_output = self.before_MADE_norm(self.before_trg_word_MADE(dec_output))
+                # dec_output = self.before_trg_word_MADE(dec_output)
             if self.args.output_positional_embedding is not None:
                 dec_output = torch.cat([outputPositionalEncoding(dec_output, self.args.output_positional_embedding), dec_output], dim=2)
             if self.args.feed_graph_length:
@@ -573,9 +580,9 @@ class Transformer(nn.Module):
 
         if self.args.use_MADE:
             if self.args.separate_termination_bit:
-                seq_logit = self.trg_word_MADE(torch.cat([dec_output, gold[:, :, 1:]], dim=2))
+                seq_logit = self.trg_word_MADE(torch.cat([dec_output, prepare_for_MADE(gold[:, :, 1:], self.args)], dim=2))
             else:
-                seq_logit = self.trg_word_MADE(torch.cat([dec_output, gold], dim=2))
+                seq_logit = self.trg_word_MADE(torch.cat([dec_output, prepare_for_MADE(gold, self.args)], dim=2))
         else:
             # seq_logit = self.trg_word_prj(dec_output)
             seq_logit = self.trg_word_prj_1(dec_output)

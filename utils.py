@@ -7,7 +7,11 @@ import pickle
 import re
 
 import data
+import sys
 
+def prepare_for_MADE(gold, args):
+    res = gold.clone()
+    return res
 
 def citeseer_ego():
     _, _, G = data.Graph_load(dataset='citeseer')
@@ -422,8 +426,12 @@ def get_graph(adj):
     :return:
     '''
     # remove all zeros rows and columns
+    len_1 = adj.shape[0]
     adj = adj[~np.all(adj == 0, axis=1)]
     adj = adj[:, ~np.all(adj == 0, axis=0)]
+    len_2 = adj.shape[0]
+    print('       ', len_1, ' ', len_2)
+    sys.stdout.flush()
     adj = np.asmatrix(adj)
     G = nx.from_numpy_matrix(adj)
     return G
