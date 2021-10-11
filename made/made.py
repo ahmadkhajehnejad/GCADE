@@ -100,7 +100,7 @@ class MADE(nn.Module):
     
     def forward(self, x):
         y_1 = self.net_1(x)
-        return self.net_2(torch.cat([x, y_1], dim=2))
+        return self.net_2(torch.cat([x, y_1], dim=-1))
         #return self.net(x)
         # return self.net(x[:,:,:self.nin_extra])
         # return x[:,:,-self.nout:] * 100
