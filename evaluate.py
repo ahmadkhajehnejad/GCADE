@@ -17,7 +17,7 @@ class Args_evaluate():
         # self.model_name_all = ['GraphRNN_MLP','GraphRNN_RNN','Internal','Noise']
         # self.model_name_all = ['E-R', 'B-A']
         # self.model_name_all = ['GraphRNN_RNN']
-        self.model_name_all = ['Gransformer-6layers-nomodellayernorm-feedgraphlength-MADEhl3msk1natuord1dimred1-estnumnodes-exactgen'] # -bfsincpar-typededges-gattk16log -separateTerminationBit] # -allowAllZeros  'Gransformer-6layers-nomodellayernorm-separateTerminationBit'] # '] # -allowAllZeros-useminnumnodes'] # -separateTerminationBit'] # -weightpositions'] # -posoutputtril'] # -posoutputoneHot'] # -grposenck16log'] # '] # -grposenck4log'] # -noTerminationBit-gattk6log'] # '] #  '] # '] # '] # '] # -typededges'] # -gattk16log']
+        self.model_name_all = ['Gransformer-6layers-nomodellayernorm-feedgraphlength-MADEhl2msk1natuord1dimred1-estnumnodes-exactgen'] # -bfsincpar-typededges-gattk16log -separateTerminationBit] # -allowAllZeros  'Gransformer-6layers-nomodellayernorm-separateTerminationBit'] # '] # -allowAllZeros-useminnumnodes'] # -separateTerminationBit'] # -weightpositions'] # -posoutputtril'] # -posoutputoneHot'] # -grposenck16log'] # '] # -grposenck4log'] # -noTerminationBit-gattk6log'] # '] #  '] # '] # '] # '] # -typededges'] # -gattk16log']
         # self.model_name_all = ['Baseline_DGMG']
 
         # list of dataset to evaluate
@@ -32,7 +32,7 @@ class Args_evaluate():
         # self.epoch_end=1001 # 2651
         # self.epoch_step=950 # 1000
         # self.selected_epochs = list(range(50:1001:950))
-        self.selected_epochs = [700] # [2600, 2800, 3000] # [2600, 2800, 3000] # [600, 800, 1000] # , 2600, 2800, 3000]
+        self.selected_epochs = [2600, 2800, 3000] # [2600, 2800, 3000] # [600, 800, 1000] # , 2600, 2800, 3000]
 
 def find_nearest_idx(array,value):
     idx = (np.abs(array-value)).argmin()
