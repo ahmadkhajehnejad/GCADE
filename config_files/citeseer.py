@@ -7,7 +7,7 @@ class Args(BaseArgs):
 
 
         self.batch_size = 16 # 32  # normal: 32, and the rest should be changed accordingly
-        self.test_batch_size = 50 # 50
+        self.test_batch_size = 15 # 50
         self.test_total_size = 1000 # 1000
 
         ### training config

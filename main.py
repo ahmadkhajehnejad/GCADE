@@ -114,7 +114,7 @@ val_dataset = MyGraph_sequence_sampler_pytorch(graphs_validate, args, max_prev_n
 # val_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(val_dataset) for i in range(len(val_dataset))],
 #                                                                  num_samples=args.batch_size * args.batch_ratio,
 #                                                                  replacement=True)
-val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, #num_workers=args.num_workers,
+val_dataset_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size // 2, #num_workers=args.num_workers,
                                              sampler=None) #val_sample_strategy)
 
 
@@ -123,7 +123,7 @@ test_dataset = MyGraph_sequence_sampler_pytorch(graphs_test, args, max_prev_node
 # test_sample_strategy = torch.utils.data.sampler.WeightedRandomSampler([1.0 / len(test_dataset) for i in range(len(test_dataset))],
 #                                                                  num_samples=args.batch_size * args.batch_ratio,
 #                                                                  replacement=True)
-test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size,  #num_workers=args.num_workers,
+test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size // 2,  #num_workers=args.num_workers,
                                              sampler=None) #test_sample_strategy)
 
 

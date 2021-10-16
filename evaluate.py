@@ -17,7 +17,7 @@ class Args_evaluate():
         # self.model_name_all = ['GraphRNN_MLP','GraphRNN_RNN','Internal','Noise']
         # self.model_name_all = ['E-R', 'B-A']
         # self.model_name_all = ['GraphRNN_RNN']
-        self.model_name_all = ['Gransformer-6layers-nomodellayernorm-feedgraphlength-MADEhl2msk1natuord1dimred1-estnumnodes-exactgen'] # -bfsincpar-typededges-gattk16log -separateTerminationBit] # -allowAllZeros  'Gransformer-6layers-nomodellayernorm-separateTerminationBit'] # '] # -allowAllZeros-useminnumnodes'] # -separateTerminationBit'] # -weightpositions'] # -posoutputtril'] # -posoutputoneHot'] # -grposenck16log'] # '] # -grposenck4log'] # -noTerminationBit-gattk6log'] # '] #  '] # '] # '] # '] # -typededges'] # -gattk16log']
+        self.model_name_all = ['Gransformer-6layers-nomodellayernorm-feedgraphlength-MADEhl2msk1natuord1dimred1-typededges-gattk16log-grposenck16log-estnumnodes-exactgen'] # -bfsincpar -separateTerminationBit] # -allowAllZeros  'Gransformer-6layers-nomodellayernorm-separateTerminationBit'] # '] # -allowAllZeros-useminnumnodes'] # -separateTerminationBit'] # -weightpositions'] # -posoutputtril'] # -posoutputoneHot'] # '] # '] # -grposenck4log'] # -noTerminationBit-gattk6log'] # '] #  '] # '] # '] # '] # -typededges'] # -gattk16log']
         # self.model_name_all = ['Baseline_DGMG']
 
         # list of dataset to evaluate
