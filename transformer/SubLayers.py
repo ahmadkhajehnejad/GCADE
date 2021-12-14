@@ -64,7 +64,7 @@ class EnsembleMultiHeadAttention(nn.Module):
     '''Ensemble  Multi-Head Attention module '''
 
     def __init__(self, n_ensemble_q, n_ensemble_k, n_head, d_model, d_k, d_v, no_layer_norm,
-                 typed_edges, k_gr_att=0, gr_att_batchnorm=False, dropout=0.1, attn_dropout=0.1):
+                 typed_edges, k_gr_att=0, gr_att_v2=False, gr_att_batchnorm=False, dropout=0.1, attn_dropout=0.1):
         super().__init__()
 
         self.n_head = n_head
@@ -78,18 +78,40 @@ class EnsembleMultiHeadAttention(nn.Module):
         self.n_ensemble_k = n_ensemble_k
 
         self.gr_att_batchnorm = gr_att_batchnorm
+        self.k_gr_att = k_gr_att
+        self.gr_att_v2 = gr_att_v2
 
         if k_gr_att > 0:
             if self.gr_att_batchnorm:
                 self.gr_att_layer_norm = nn.LayerNorm(k_gr_att, eps=1e-3)
-            self.gr_att_linear_list_1 = nn.ModuleList([
-                nn.Linear(k_gr_att, k_gr_att, bias=True)
-                for _ in range(n_ensemble_q * n_ensemble_k * n_head)
-            ])
-            self.gr_att_linear_list_2 = nn.ModuleList([
-                nn.Linear(k_gr_att, 1, bias=True)
-                for _ in range(n_ensemble_q * n_ensemble_k * n_head)
-            ])
+
+            if self.gr_att_v2:
+                self.gr_att_linear_list_1_k = nn.ModuleList([
+                    nn.Linear(k_gr_att, d_k, bias=True)
+                    for _ in range(n_ensemble_q * n_ensemble_k * n_head)
+                ])
+                self.gr_att_linear_list_2_k = nn.ModuleList([
+                    nn.Linear(d_k, d_k, bias=True)
+                    for _ in range(n_ensemble_q * n_ensemble_k * n_head)
+                ])
+                self.gr_att_linear_list_1_v = nn.ModuleList([
+                    nn.Linear(k_gr_att, d_v, bias=True)
+                    for _ in range(n_ensemble_q * n_ensemble_k * n_head)
+                ])
+                self.gr_att_linear_list_2_v = nn.ModuleList([
+                    nn.Linear(d_v, d_v, bias=True)
+                    for _ in range(n_ensemble_q * n_ensemble_k * n_head)
+                ])
+
+            else:
+                self.gr_att_linear_list_1 = nn.ModuleList([
+                    nn.Linear(k_gr_att, k_gr_att, bias=True)
+                    for _ in range(n_ensemble_q * n_ensemble_k * n_head)
+                ])
+                self.gr_att_linear_list_2 = nn.ModuleList([
+                    nn.Linear(k_gr_att, 1, bias=True)
+                    for _ in range(n_ensemble_q * n_ensemble_k * n_head)
+                ])
 
         self.w_qs_list = nn.ModuleList([
             nn.Linear(d_model, n_head * d_k, bias=False)
@@ -214,6 +236,26 @@ class EnsembleMultiHeadAttention(nn.Module):
                 attn_ = torch.zeros(sz_b, n_head, len_q, len_k).to(v.device)
                 '''
 
+                if mask is not None:
+                    if gr_mask is not None and self.gr_att_v2:
+                        k_ens_gr = torch.zeros(sz_b, n_head, len_q, len_k, d_k)
+                        for h in range(self.n_head):
+                            gr_att_linear_1 = self.gr_att_linear_list_1_k[i * n_ensemble_k * n_head + j * n_head + h]
+                            gr_att_linear_2 = self.gr_att_linear_list_2_k[i * n_ensemble_k * n_head + j * n_head + h]
+
+                            ind = mask[:, 0, :, :] == 1
+                            ind_tmp = ind.unsqueeze(-1).repeat(1,1,1,gr_mask.size(1))
+                            tmp = gr_mask.transpose(1,2).transpose(2,3)[ind_tmp].reshape(-1, gr_mask.size(1))
+                            if self.gr_att_batchnorm:
+                                tmp = self.gr_att_layer_norm(tmp)
+                            tmp_2 = gr_att_linear_2(F.relu(gr_att_linear_1(tmp))).reshape(-1)
+                            ind_tmp_dk = ind.unsqueeze(-1).repeat(1,1,1,self.d_k)
+                            k_ens_gr[:,h,:,:,:][ind_tmp_dk] = tmp_2
+
+                        attn_ += torch.mul((q_ens / self.temperature).unsqueeze(-2).repeat(1,1,1,len_k,1), k_ens_gr).sum(dim=-1)
+
+
+
                 if self.typed_edges:
                     k_ens_2 = k_prj_2[:, :, j, :].view(sz_b, len_k, n_head, d_k)
                     v_ens_2 = v_prj_2[:, :, j, :].view(sz_b, len_v, n_head, d_v)
@@ -222,7 +264,7 @@ class EnsembleMultiHeadAttention(nn.Module):
                     attn_ = attn_ * adj_tril + attn_2_ * (1 - adj_tril)
 
                 if mask is not None:
-                    if gr_mask is not None:
+                    if gr_mask is not None and not self.gr_att_v2:
                         for h in range(self.n_head):
                             gr_att_linear_1 = self.gr_att_linear_list_1[i * n_ensemble_k * n_head + j * n_head + h]
                             gr_att_linear_2 = self.gr_att_linear_list_2[i * n_ensemble_k * n_head + j * n_head + h]

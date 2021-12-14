@@ -158,7 +158,7 @@ class Encoder(nn.Module):
 
         self.layer_stack = nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, no_layer_norm=args.no_model_layer_norm,
-                         typed_edges=args.typed_edges, k_gr_att=k_graph_attention,
+                         typed_edges=args.typed_edges, k_gr_att=k_graph_attention, gr_att_v2=args.graph_attention_version_2,
                          gr_att_batchnorm=args.batchnormalize_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
 
@@ -285,7 +285,8 @@ class Decoder(nn.Module):
         k_graph_attention = 2 * args.k_graph_attention + 1 if args.normalize_graph_attention else args.k_graph_attention + 1
         self.layer_stack = nn.ModuleList([
             DecoderLayer(d_model, d_inner, n_ensemble, n_head, d_k, d_v, no_layer_norm=args.no_model_layer_norm,
-                         typed_edges=args.typed_edges, k_gr_att=k_graph_attention, gr_att_batchnorm=args.batchnormalize_graph_attention, dropout=dropout)
+                         typed_edges=args.typed_edges, k_gr_att=k_graph_attention, gr_att_v2=args.graph_attention_version_2,
+                         gr_att_batchnorm=args.batchnormalize_graph_attention, dropout=dropout)
             for _ in range(n_layers)])
         if not args.no_model_layer_norm:
             self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)

@@ -98,6 +98,7 @@ class BaseArgs():
         self.use_bfs_incremental_parent_idx = False  # True #    ### so far just implemented for max_pre_node_neighbors_vec input_type
         self.output_positional_embedding = None  # one_hot # tril
         self.k_graph_attention = 0  # 4
+        self.graph_attention_version_2 = False
         self.normalize_graph_attention = False  # True #
         self.batchnormalize_graph_attention = False  # True #
         self.log_graph_attention = False  # True #
@@ -162,6 +163,8 @@ class BaseArgs():
                     self.log_graph_attention = True
                 else:
                     self.k_graph_attention = int(param[5:])
+            elif param == 'gattv2':
+                self.graph_attention_version_2 = True
             elif param.startswith('grposenck'):
                 if param.endswith('batchnorm'):
                     self.k_graph_positional_encoding = int(param[9:-9])
