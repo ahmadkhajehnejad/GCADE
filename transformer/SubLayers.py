@@ -238,7 +238,7 @@ class EnsembleMultiHeadAttention(nn.Module):
 
                 if mask is not None:
                     if gr_mask is not None and self.gr_att_v2:
-                        k_ens_gr = torch.zeros(sz_b, n_head, len_q, len_k, d_k)
+                        k_ens_gr = torch.zeros(sz_b, n_head, len_q, len_k, d_k).to(attn_.device)
                         for h in range(self.n_head):
                             gr_att_linear_1 = self.gr_att_linear_list_1_k[i * n_ensemble_k * n_head + j * n_head + h]
                             gr_att_linear_2 = self.gr_att_linear_list_2_k[i * n_ensemble_k * n_head + j * n_head + h]
