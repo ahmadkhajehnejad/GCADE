@@ -106,6 +106,10 @@ class BaseArgs():
         self.normalize_graph_positional_encoding = False  # True #
         self.batchnormalize_graph_positional_encoding = False  # True #
         self.log_graph_positional_encoding = False  # True #
+        self.k_new_graph_positional_encoding = 0  # 4
+        self.normalize_new_graph_positional_encoding = False  # True #
+        self.batchnormalize_new_graph_positional_encoding = False  # True #
+        self.log_new_graph_positional_encoding = False  # True #
         self.use_MADE = False  # True #
         self.MADE_num_masks = 3  # 1
         self.MADE_natural_ordering = False  # True #
@@ -165,6 +169,18 @@ class BaseArgs():
                     self.k_graph_attention = int(param[5:])
             elif param == 'gattv2':
                 self.graph_attention_version_2 = True
+            elif param.startswith('newgrposenck'):
+                if param.endswith('batchnorm'):
+                    self.k_new_graph_positional_encoding = int(param[12:-9])
+                    self.batchnormalize_new_graph_positional_encoding = True
+                elif param.endswith('norm'):
+                    self.k_new_graph_positional_encoding = int(param[12:-4])
+                    self.normalize_new_graph_positional_encoding = True
+                elif param.endswith('log'):
+                    self.k_new_graph_positional_encoding = int(param[12:-3])
+                    self.log_new_graph_positional_encoding = True
+                else:
+                    self.k_new_graph_positional_encoding = int(param[12:])
             elif param.startswith('grposenck'):
                 if param.endswith('batchnorm'):
                     self.k_graph_positional_encoding = int(param[9:-9])
