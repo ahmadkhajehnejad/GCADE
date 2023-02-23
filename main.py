@@ -924,19 +924,20 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
         test_running_loss = 0.0
         testsz = 0
         gg_model.eval()
-        for i, data in enumerate(dataset_test):
-            if args.use_MADE:
-                gg_model.trg_word_MADE.update_masks()
-            src_seq = data['src_seq'].to(args.device)
-            trg_seq = data['src_seq'].to(args.device)
-            gold = data['trg_seq'].contiguous().to(args.device)
-            adj = data['adj'].to(args.device)
+        with torch.no_grad():
+            for i, data in enumerate(dataset_test):
+                if args.use_MADE:
+                    gg_model.trg_word_MADE.update_masks()
+                src_seq = data['src_seq'].to(args.device)
+                trg_seq = data['src_seq'].to(args.device)
+                gold = data['trg_seq'].contiguous().to(args.device)
+                adj = data['adj'].to(args.device)
 
-            pred, dec_output = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance(pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
+                pred, dec_output = gg_model(src_seq, trg_seq, gold, adj)
+                loss, *_ = cal_performance(pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
 
-            test_running_loss += loss.item()
-            testsz += src_seq.size(0)
+                test_running_loss += loss.item()
+                testsz += src_seq.size(0)
 
         if epoch % args.epochs_save == 0:
             fname = args.model_save_path + args.fname + '_' + args.graph_type + '_'  + str(epoch) + '.dat'
@@ -953,17 +954,18 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
         time_all[epoch - 1] = time_end - time_start
         # test
         if epoch % args.epochs_test == 0 and epoch >= args.epochs_test_start:
-            for sample_time in range(1,2): #4):
-                print('     sample_time:', sample_time)
-                G_pred = []
-                while len(G_pred)<args.test_total_size:
-                    print('        len(G_pred):', len(G_pred))
-                    G_pred_step = generate_graph(gg_model, args)
-                    G_pred.extend(G_pred_step)
-                # save graphs
-                fname = args.graph_save_path + args.fname_pred + str(epoch) + '_' + str(sample_time) + '.dat'
-                utils.save_graph_list(G_pred, fname)
-            print('test done, graphs saved')
+            with torch.no_grad():
+                for sample_time in range(1,2): #4):
+                    print('     sample_time:', sample_time)
+                    G_pred = []
+                    while len(G_pred)<args.test_total_size:
+                        print('        len(G_pred):', len(G_pred))
+                        G_pred_step = generate_graph(gg_model, args)
+                        G_pred.extend(G_pred_step)
+                    # save graphs
+                    fname = args.graph_save_path + args.fname_pred + str(epoch) + '_' + str(sample_time) + '.dat'
+                    utils.save_graph_list(G_pred, fname)
+                print('test done, graphs saved')
 
     # np.save(args.timing_save_path+args.fname,time_all)
 
