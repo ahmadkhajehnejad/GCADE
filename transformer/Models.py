@@ -110,7 +110,7 @@ class GraphPositionalEncoding(nn.Module):
 class NewGraphPositionalEncoding(nn.Module):
 
     def __init__(self, args, d_hid):
-        super(GraphPositionalEncoding, self).__init__()
+        super(NewGraphPositionalEncoding, self).__init__()
         if args.normalize_new_graph_positional_encoding:
             k_gr_kernel = 2 * args.k_new_graph_positional_encoding + 1
         else:
@@ -120,6 +120,9 @@ class NewGraphPositionalEncoding(nn.Module):
             self.layer_norm = nn.LayerNorm(k_gr_kernel, eps=1e-3)
         self.linear_1 = nn.Linear(k_gr_kernel, k_gr_kernel, bias=True)
         self.linear_2 = nn.Linear(k_gr_kernel, 1, bias=True)
+        self.device = args.device
+
+        self.initial_embeddings = torch.tensor(np.random.rand(args.max_seq_len, d_hid), dtype=torch.float32, device=args.device)
 
     def forward(self, x, gr_kernel):
 
@@ -127,17 +130,17 @@ class NewGraphPositionalEncoding(nn.Module):
         if self.batchnorm:
             input = self.layer_norm(input)
         sim = torch.exp(self.linear_2(F.relu(self.linear_1(input))))
-        sim = sim.unsqueeze(-1)
+        sim = sim.squeeze(-1)
 
         batch_size, k, max_n, _ = gr_kernel.size()
 
-        result = torch.eye(max_n).view(1, max_n, max_n).repeat(batch_size, 1, 1)
+        emb = self.initial_embeddings.view(1, max_n, max_n).repeat(batch_size, 1, 1)
         for i in range(1, max_n):
-            result[:, i:i+1, :] = sim[:, i:i+1, :i] * result[:, :i, :] / sim[:, i:i+1, :i].sum(dim=-1, keepdim=True).repeat(1, 1, i)
+            emb[:, i:i+1, :] = sim[:, i:i+1, :i] * emb[:, :i, :] / sim[:, i:i+1, :i].sum(dim=-1, keepdim=True).repeat(1, 1, i)
 
         if len(x.size()) == 4:
-            result = result.unsqueeze(2)
-        return x + result
+            emb = emb.unsqueeze(2)
+        return x + emb
 
 
 class Encoder(nn.Module):
@@ -559,11 +562,11 @@ class Transformer(nn.Module):
             else:
                 gr_mask = gr_kernel[:, :k_gr_att + 1, :, :]
 
-            if ((self.args.k_new_positional_encoding > 0) and self.args.normalize_new_graph_positional_encoding) or \
+            if ((self.args.k_new_graph_positional_encoding > 0) and self.args.normalize_new_graph_positional_encoding) or \
                     self.args.normalize_graph_positional_encoding:
                 gr_pos_enc_kernel = gr_kernel_normalized[:, np.concatenate([np.arange(0, k_gr_pos_enc + 1),
                                                                             np.arange(k_gr, k_gr + k_gr_pos_enc)]), :, :]
-            elif ((self.args.k_new_positional_encoding > 0) and self.args.log_new_graph_positional_encoding) or \
+            elif ((self.args.k_new_graph_positional_encoding > 0) and self.args.log_new_graph_positional_encoding) or \
                     self.args.log_graph_positional_encoding:
                 gr_pos_enc_kernel = torch.log(gr_kernel[:, :k_gr_pos_enc + 1, :, :] + 1)
             else:
