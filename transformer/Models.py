@@ -50,10 +50,10 @@ def binary(x, bits):
     mask = 2**torch.arange(bits).to(x.device, x.dtype)
     return x.unsqueeze(-1).bitwise_and(mask).ne(0).byte()
 
-class PositionalEncoding(nn.Module):
+class BasePositionalEncoding(nn.Module):
 
     def __init__(self, args, d_hid, n_position=1000):
-        super(PositionalEncoding, self).__init__()
+        super(BasePositionalEncoding, self).__init__()
 
         self.input_type = args.input_type
         # Not a parameter
@@ -73,12 +73,20 @@ class PositionalEncoding(nn.Module):
         return torch.FloatTensor(sinusoid_table).unsqueeze(0)
 
     def forward(self, x):
-        if self.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
-            return x + self.pos_table[:, :x.size(1)].unsqueeze(-2).clone().detach()
-        elif self.input_type == 'node_based':
-            return x + self.pos_table[:, :x.size(1)].clone().detach()
-        else:
-            raise NotImplementedError
+        return self.pos_table[:, :x.size(1)].clone().detach()
+
+
+class PositionalEncoding(nn.Module):
+
+    def __init__(self, args, d_hid, n_position=1000):
+        super(PositionalEncoding, self).__init__()
+        self.base_positional_encoding = BasePositionalEncoding(args, d_hid, n_position)
+
+    def forward(self, x):
+        base_emb = self.base_positional_encoding(x)
+        if len(x.size()) == 4:
+            base_emb = base_emb.unsqueeze(-2)
+        return x + base_emb
 
 
 class GraphPositionalEncoding(nn.Module):
@@ -109,38 +117,67 @@ class GraphPositionalEncoding(nn.Module):
 
 class NewGraphPositionalEncoding(nn.Module):
 
-    def __init__(self, args, d_hid):
+    def __init__(self, args, d_hid, n_position=1000):
         super(NewGraphPositionalEncoding, self).__init__()
-        if args.normalize_new_graph_positional_encoding:
-            k_gr_kernel = 2 * args.k_new_graph_positional_encoding + 1
-        else:
-            k_gr_kernel = args.k_new_graph_positional_encoding + 1
-        self.batchnorm = args.batchnormalize_new_graph_positional_encoding
-        if self.batchnorm:
-            self.layer_norm = nn.LayerNorm(k_gr_kernel, eps=1e-3)
-        self.linear_1 = nn.Linear(k_gr_kernel, k_gr_kernel, bias=True)
-        self.linear_2 = nn.Linear(k_gr_kernel, 1, bias=True)
-        self.device = args.device
-
-        self.initial_embeddings = torch.tensor(np.random.rand(args.max_seq_len, d_hid), dtype=torch.float32, device=args.device)
+        self.base_positional_encoding = BasePositionalEncoding(args, d_hid, n_position)
+        self.is_normalized = args.normalize_new_graph_positional_encoding
+        self.eps = args.new_graph_positional_embedding_eps
 
     def forward(self, x, gr_kernel):
-
-        input = gr_kernel.transpose(-3, -2).transpose(-2, -1)
-        if self.batchnorm:
-            input = self.layer_norm(input)
-        sim = torch.exp(self.linear_2(F.relu(self.linear_1(input))))
-        sim = sim.squeeze(-1)
-
-        batch_size, k, max_n, _ = gr_kernel.size()
-
-        emb = self.initial_embeddings.view(1, max_n, max_n).repeat(batch_size, 1, 1)
-        for i in range(1, max_n):
-            emb[:, i:i+1, :] = sim[:, i:i+1, :i] * emb[:, :i, :] / sim[:, i:i+1, :i].sum(dim=-1, keepdim=True).repeat(1, 1, i)
+        batch_size = x.size(0)
+        base_emb = self.base_positional_encoding(x).repeat(batch_size, 1, 1)
+        coef = 1
+        n_k = gr_kernel.size(1) if not self.is_normalized else int((gr_kernel.size(1) + 1) / 2)
+        for k in range(n_k):
+            tmp = torch.matmul( gr_kernel[:, k, :, :], base_emb) * coef
+            if k == 0:
+                emb = tmp
+            else:
+                emb = emb + tmp
+            coef = coef * (1 - self.eps)
 
         if len(x.size()) == 4:
             emb = emb.unsqueeze(2)
         return x + emb
+
+
+# class NewGraphPositionalEncoding(nn.Module):
+#
+#     def __init__(self, args, d_hid):
+#         super(NewGraphPositionalEncoding, self).__init__()
+#         if args.normalize_new_graph_positional_encoding:
+#             k_gr_kernel = 2 * args.k_new_graph_positional_encoding + 1
+#         else:
+#             k_gr_kernel = args.k_new_graph_positional_encoding + 1
+#         self.batchnorm = args.batchnormalize_new_graph_positional_encoding
+#         if self.batchnorm:
+#             self.layer_norm = nn.LayerNorm(k_gr_kernel, eps=1e-3)
+#         self.linear_1 = nn.Linear(k_gr_kernel, k_gr_kernel, bias=True)
+#         self.linear_2 = nn.Linear(k_gr_kernel, 1, bias=True)
+#         self.device = args.device
+#
+#         self.initial_embeddings = torch.tensor(np.random.rand(args.max_seq_len, d_hid), dtype=torch.float32, device=args.device)
+#
+#     def forward(self, x, gr_kernel):
+#
+#         input = gr_kernel.transpose(-3, -2).transpose(-2, -1)
+#         if self.batchnorm:
+#             input = self.layer_norm(input)
+#         sim = torch.exp(self.linear_2(F.relu(self.linear_1(input))))
+#         sim = sim.squeeze(-1)
+#
+#         batch_size, k, max_n, _ = gr_kernel.size()
+#
+#         emb = self.initial_embeddings.unsqueeze(0).repeat(batch_size, 1, 1)
+#         for i in range(1, max_n):
+#             tmp = torch.matmul(sim[:, i:i + 1, :i + 1], emb[:, :i + 1, :])
+#             denominator = sim[:, i:i + 1, :i + 1].sum(dim=-1, keepdim=True).repeat(1, 1, emb.size(2))
+#             denominator[denominator == 0] = 1
+#             emb[:, i:i + 1, :] = tmp / denominator
+#
+#         if len(x.size()) == 4:
+#             emb = emb.unsqueeze(2)
+#         return x + emb
 
 
 class Encoder(nn.Module):

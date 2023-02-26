@@ -108,7 +108,7 @@ class BaseArgs():
         self.log_graph_positional_encoding = False  # True #
         self.k_new_graph_positional_encoding = 0  # 4
         self.normalize_new_graph_positional_encoding = False  # True #
-        self.batchnormalize_new_graph_positional_encoding = False  # True #
+        # self.batchnormalize_new_graph_positional_encoding = False  # True #
         self.log_new_graph_positional_encoding = False  # True #
         self.use_MADE = False  # True #
         self.MADE_num_masks = 3  # 1
@@ -170,9 +170,11 @@ class BaseArgs():
             elif param == 'gattv2':
                 self.graph_attention_version_2 = True
             elif param.startswith('newgrposenck'):
+                self.new_graph_positional_embedding_eps = 0.01
                 if param.endswith('batchnorm'):
-                    self.k_new_graph_positional_encoding = int(param[12:-9])
-                    self.batchnormalize_new_graph_positional_encoding = True
+                    raise NotImplementedError()
+                    # self.k_new_graph_positional_encoding = int(param[12:-9])
+                    # self.batchnormalize_new_graph_positional_encoding = True
                 elif param.endswith('norm'):
                     self.k_new_graph_positional_encoding = int(param[12:-4])
                     self.normalize_new_graph_positional_encoding = True
