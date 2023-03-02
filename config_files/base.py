@@ -170,7 +170,7 @@ class BaseArgs():
             elif param == 'gattv2':
                 self.graph_attention_version_2 = True
             elif param.startswith('newgrposenck'):
-                self.new_graph_positional_embedding_eps = 0.01
+                self.new_graph_positional_embedding_eps = 0.1
                 if param.endswith('batchnorm'):
                     raise NotImplementedError()
                     # self.k_new_graph_positional_encoding = int(param[12:-9])

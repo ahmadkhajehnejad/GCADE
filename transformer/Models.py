@@ -128,14 +128,20 @@ class NewGraphPositionalEncoding(nn.Module):
         base_emb = self.base_positional_encoding(x).repeat(batch_size, 1, 1)
         coef = 1
         sum_coef = 0
-        n_k = gr_kernel.size(1) if not self.is_normalized else int((gr_kernel.size(1) + 1) / 2)
-        for k in range(n_k):
+        n_k = gr_kernel.size(1) - 1 if not self.is_normalized else int((gr_kernel.size(1) + 1) / 2) - 1
+        for k in range(n_k + 1):
             sum_coef = sum_coef + coef
             tmp = torch.matmul( gr_kernel[:, k, :, :], base_emb) * coef
             if k == 0:
                 emb = tmp
             else:
                 emb = emb + tmp
+
+            if self.is_normalized and k > 0:
+                sum_coef = sum_coef + coef
+                tmp = torch.matmul(gr_kernel[:, n_k + k, :, :], base_emb) * coef
+                emb = emb + tmp
+
             coef = coef * (1 - self.eps)
 
         emb = emb / sum_coef
