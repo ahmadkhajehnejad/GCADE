@@ -10,8 +10,12 @@ class BaseArgs():
 
         # if none, then auto calculate
         self.max_num_node = None  # max number of nodes in a graph
+        self.min_num_node = None
         self.max_prev_node = None  # max previous node that looks back
-        self.max_seq_len = None
+        # self.max_seq_len = None
+        self.block_size = 25
+        self.num_blocks = None
+        self.shared_blocks = False
 
         ### output config
         # self.dir_input = "/dfs/scratch0/jiaxuany0/"
@@ -33,99 +37,51 @@ class BaseArgs():
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print('self.device:', self.device)
 
-
-        self.node_ordering = 'bfs' # 'blanket' #
-        self.use_max_prev_node = False # True #   ### ignored when using an input_type other than preceding_neighbors_vector'
-        if self.use_max_prev_node:
-            assert self.node_ordering in ['bfs']
-
         self.max_num_generate_trials = 1000
 
-        self.input_type = 'preceding_neighbors_vector' # 'max_prev_node_neighbors_vec' # 'node_based' #
-        self.only_encoder = True # False
 
-        self.input_bfs_depth = False # True #
-        if self.input_bfs_depth:
-            assert self.node_ordering in ['bfs']
-
-        if self.input_type == 'node_based':
-            self.trg_pad_idx = 0
-            self.src_pad_idx = 0
-        elif self.input_type in ['preceding_neighbors_vector', 'max_prev_node_neighbors_vec']:
-            self.trg_pad_idx = -2
-            self.src_pad_idx = -2  # must be equal to self.trg_pad_idx
-            # self.avg = False # True #
-            # if self.avg == True:
-            #     self.zero_input = 0
-            #     self.one_input = 1
-            #     self.dontcare_input = 0
-            # else:
-            if True:
-                self.zero_input = -1
-                self.one_input = 1
-                self.dontcare_input = 0
-        else:
-            raise NotImplementedError
+        self.pad_idx = -2
+        self.zero_input = -1
+        self.one_input = 1
+        self.dontcare_input = 0
 
 
         self.dropout = 0.1
-        self.proj_share_weight = False # True
-        self.embs_share_weight = True
-        self.scale_emb_or_prj = 'prj'
+        # self.proj_share_weight = False # True
+        # self.embs_share_weight = True
+        # self.scale_emb_or_prj = 'prj'
+        self.scale_prj = False # True
+        self.scale_emb = True
 
         ### output
         self.use_tb = False  # use tensorboard
         self.output_dir = './output'
 
 
-
-        self.ensemble_input_type = 'repeat'  # 'multihop-single' # 'negative' # 'multihop' #
-
         ################## Default values --- These config parameters can be changed by note argument. ###############33
         self.n_head = 1  # 8
-        if self.ensemble_input_type == 'negative':
-            self.n_ensemble = 2
-        elif self.ensemble_input_type == 'multihop':
-            self.ensemble_multihop = [2]
-            self.n_ensemble = len(self.ensemble_multihop) + 1
-        elif self.ensemble_input_type == 'multihop-single':
-            self.ensemble_multihop = [1, 2, 3, 4]
-            self.n_ensemble = 1
-        elif self.ensemble_input_type == 'repeat':
-            self.n_ensemble = 1  # 8
-        else:
-            raise NotImplementedError('ensemble_input_type', self.ensemble_input_type, 'not recognized.')
+        self.n_ensemble = 1  # 8
         self.use_bfs_incremental_parent_idx = False  # True #    ### so far just implemented for max_pre_node_neighbors_vec input_type
-        self.output_positional_embedding = None  # one_hot # tril
         self.k_graph_attention = 0  # 4
         self.graph_attention_version_2 = False
         self.normalize_graph_attention = False  # True #
         self.batchnormalize_graph_attention = False  # True #
         self.log_graph_attention = False  # True #
+        self.type_graph_positional_encoding = None
         self.k_graph_positional_encoding = 0  # 4
         self.normalize_graph_positional_encoding = False  # True #
         self.batchnormalize_graph_positional_encoding = False  # True #
         self.log_graph_positional_encoding = False  # True #
-        self.k_new_graph_positional_encoding = 0  # 4
-        self.normalize_new_graph_positional_encoding = False  # True #
-        # self.batchnormalize_new_graph_positional_encoding = False  # True #
-        self.log_new_graph_positional_encoding = False  # True #
         self.use_MADE = False  # True #
         self.MADE_num_masks = 3  # 1
         self.MADE_natural_ordering = False  # True #
         self.MADE_num_hidden_layers = 1  # 3
-        self.MADE_dim_reduction_factor = 1
         self.n_layers = 2 # 6
-        self.n_grlayers = 0
         self.no_model_layer_norm = False # True #
-        assert self.n_grlayers <= self.n_layers
-        assert self.n_grlayers == 0 or self.k_graph_attention == 0
         self.estimate_num_nodes = False # True #
         self.typed_edges = False # True
         self.allow_all_zeros = False # True
-        self.use_termination_bit = True # False
         self.weight_positions = False # True
-        self.separate_termination_bit = False # True
         self.use_min_num_nodes = False # True
         self.sep_optimizer_start_step = 1000000000
         self.weight_termination_bit = False
@@ -138,11 +94,7 @@ class BaseArgs():
         note_params = self.note.split('-')
         for param in note_params[1:]:
 
-            if param.endswith('grlayers'):
-                self.n_grlayers = int(param[:-8])
-            elif param.endswith('grlayer'):
-                self.n_grlayers = int(param[:-7])
-            elif param.endswith('layers'):
+            if param.endswith('layers'):
                 self.n_layers = int(param[:-6])
             elif param.endswith('layer'):
                 self.n_layers = int(param[:-5])
@@ -169,21 +121,8 @@ class BaseArgs():
                     self.k_graph_attention = int(param[5:])
             elif param == 'gattv2':
                 self.graph_attention_version_2 = True
-            elif param.startswith('newgrposenck'):
-                self.new_graph_positional_embedding_eps = 0.1
-                if param.endswith('batchnorm'):
-                    raise NotImplementedError()
-                    # self.k_new_graph_positional_encoding = int(param[12:-9])
-                    # self.batchnormalize_new_graph_positional_encoding = True
-                elif param.endswith('norm'):
-                    self.k_new_graph_positional_encoding = int(param[12:-4])
-                    self.normalize_new_graph_positional_encoding = True
-                elif param.endswith('log'):
-                    self.k_new_graph_positional_encoding = int(param[12:-3])
-                    self.log_new_graph_positional_encoding = True
-                else:
-                    self.k_new_graph_positional_encoding = int(param[12:])
             elif param.startswith('grposenck'):
+                self.type_graph_positional_encoding = 1
                 if param.endswith('batchnorm'):
                     self.k_graph_positional_encoding = int(param[9:-9])
                     self.batchnormalize_graph_positional_encoding = True
@@ -195,6 +134,19 @@ class BaseArgs():
                     self.log_graph_positional_encoding = True
                 else:
                     self.k_graph_positional_encoding = int(param[9:])
+            elif param.startswith('grposenc2k'):
+                self.type_graph_positional_encoding = 2
+                self.graph_positional_embedding_eps = 0.1
+                if param.endswith('batchnorm'):
+                    raise NotImplementedError()
+                elif param.endswith('norm'):
+                    self.k_graph_positional_encoding = int(param[10:-4])
+                    self.normalize_graph_positional_encoding = True
+                elif param.endswith('log'):
+                    self.k_graph_positional_encoding = int(param[10:-3])
+                    self.log_new_graph_positional_encoding = True
+                else:
+                    self.k_graph_positional_encoding = int(param[10:])
             elif param.startswith('nhead'):
                 self.n_head = int(param[5:])
             elif param.startswith('nensemble'):
@@ -261,12 +213,12 @@ class BaseArgs():
         #     self.hidden_size_rnn) + '_'
         # self.fname_pred = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
         #     self.hidden_size_rnn) + '_pred_'
-        self.fname_pred = self.note + '_' + self.graph_type + '_' + self.input_type +  '_pred_'
+        self.fname_pred = self.note + '_' + self.graph_type + '_' + 'preceding_neighbors_vector' +  '_pred_'
         # self.fname_train = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
         #     self.hidden_size_rnn) + '_train_'
-        self.fname_train = self.note.split('-')[0] + '_' + self.graph_type + '_' + self.input_type + '_train_'
+        self.fname_train = self.note.split('-')[0] + '_' + self.graph_type + '_' + 'preceding_neighbors_vector' + '_train_'
         # self.fname_test = self.note + '_' + self.graph_type + '_' + str(self.num_layers) + '_' + str(
         #     self.hidden_size_rnn) + '_test_'
-        self.fname_test = self.note.split('-')[0] + '_' + self.graph_type + '_' + self.input_type + '_test_'
+        self.fname_test = self.note.split('-')[0] + '_' + self.graph_type + '_' + 'preceding_neighbors_vector' + '_test_'
         # self.fname_baseline = self.graph_save_path + self.graph_type + self.generator_baseline + '_' + self.metric_baseline
 

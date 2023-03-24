@@ -58,7 +58,10 @@ class MyScheduledOptim():
 
     def __init__(self, optimizer, sep_optimizer, milestones, lr_list, sep_optimizer_start_step):
         self._optimizer = optimizer
-        self._sep_optimizer = sep_optimizer
+        if sep_optimizer is None:
+            self._sep_optimizer = self._optimizer
+        else:
+            self._sep_optimizer = sep_optimizer
         self.milestones = milestones
         self.lr_list = lr_list
         self.n_steps = 0
