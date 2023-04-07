@@ -6,7 +6,7 @@ class Args(BaseArgs):
 
 
 
-        self.batch_size = 16 # 32  # normal: 32, and the rest should be changed accordingly
+        self.batch_size = 8 # 32  # normal: 32, and the rest should be changed accordingly
         self.test_batch_size = 15 # 50
         self.test_total_size = 1000 # 1000
 
@@ -34,6 +34,6 @@ class Args(BaseArgs):
         self.lr_list = [0.0001] # [0.0005, 0.0001, 0.00002, 0.005]  # , 0.00002, 0.000004] # [0.0001, 0.00002, 0.000004, 0.0000008, 0.00000016]
         self.milestones = [] #  [self.batch_ratio * 100, self.batch_ratio * 200, self.batch_ratio * 800]  #[self.batch_ratio * 250, self.batch_ratio * 750] # [self.batch_ratio * 60, self.batch_ratio * 120, self.batch_ratio * 180, self.batch_ratio * 240]
 
-        self.note = 'Gransformer-6layers-feedgraphlength-MADEhl2msk1natuord1dimred1-typededges-gattk16log-grposenck16log' # nomodellayernorm- -estnumnodes-exactgen' # -bfsincpar' # ' #-sepoptepoch20 # -separateTerminationBit' # '  # -allowAllZeros' #' #   ' # -useminnumnodes' #  ' # # ' # ' # -weightpositions' # ' # -posoutputoneHot' # -posoutputtril' #  -nhead1-nensemble1' # ' # -trainpr0.2,valpr0.2,testpr0.2 #'
+        self.note = 'Gransformer-6layers-feedgraphlength-MADEhl2msk1natuord1dimred1-typededges-gattk8norm-grposenck8norm' # nomodellayernorm- -estnumnodes-exactgen' # -bfsincpar' # ' #-sepoptepoch20 # -separateTerminationBit' # '  # -allowAllZeros' #' #   ' # -useminnumnodes' #  ' # # ' # ' # -weightpositions' # ' # -posoutputoneHot' # -posoutputtril' #  -nhead1-nensemble1' # ' # -trainpr0.2,valpr0.2,testpr0.2 #'
 
         super().__init__(self.graph_type, self.note, self.batch_ratio)

@@ -235,6 +235,7 @@ class Decoder(nn.Module):
         sz_emb = args.n_ensemble * args.d_word_vec
 
         sz_intermed = max(sz_input_vec, sz_emb)
+        # sz_intermed = min(sz_input_vec, 2 * sz_emb)
         self.dec_word_emb_1 = nn.Linear(sz_input_vec, sz_intermed, bias=True)
         self.dec_word_emb_2 = nn.Linear(sz_intermed, sz_intermed, bias=True)
         self.dec_word_emb_3 = nn.Linear(sz_intermed, sz_emb, bias=True)

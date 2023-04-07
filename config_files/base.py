@@ -13,7 +13,7 @@ class BaseArgs():
         self.min_num_node = None
         self.max_prev_node = None  # max previous node that looks back
         # self.max_seq_len = None
-        self.block_size = 25
+        self.block_size = 402 # 25
         self.num_blocks = None
         self.shared_blocks = False
 
