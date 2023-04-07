@@ -54,7 +54,6 @@ class BasePositionalEncoding(nn.Module):
     def __init__(self, args, d_hid, n_position=1000):
         super(BasePositionalEncoding, self).__init__()
 
-        self.input_type = args.input_type
         # Not a parameter
         self.register_buffer('pos_table', self._get_sinusoid_encoding_table(n_position, d_hid))
 
@@ -435,12 +434,19 @@ class BlockWiseTransformer(nn.Module):
             tmp_adj[0, :] = 0
             tmp_adj[:, 0] = 0
 
-            tmp_gr_mask = None if gr_mask is None else gr_mask[ :, :, first_idx: last_idx, first_idx: last_idx]
-            tmp_gr_pos_enc_kernel = None if gr_pos_enc_kernel is None else gr_pos_enc_kernel[:, :, first_idx: last_idx, first_idx: last_idx]
-            tmp_gr_mask[:, :, 0, :] = gr_mask[:, :, 0, first_idx: last_idx]
-            tmp_gr_mask[:, :, :, 0] = gr_mask[:, :, first_idx: last_idx, 0]
-            tmp_gr_pos_enc_kernel[:, :, 0, :] = gr_pos_enc_kernel[:, :, 0, first_idx: last_idx]
-            tmp_gr_pos_enc_kernel[:, :, :, 0] = gr_pos_enc_kernel[:, :, first_idx: last_idx, 0]
+            if gr_mask is None:
+                tmp_gr_mask = None
+            else:
+                tmp_gr_mask = gr_mask[ :, :, first_idx: last_idx, first_idx: last_idx]
+                tmp_gr_mask[:, :, 0, :] = gr_mask[:, :, 0, first_idx: last_idx]
+                tmp_gr_mask[:, :, :, 0] = gr_mask[:, :, first_idx: last_idx, 0]
+
+            if gr_pos_enc_kernel is None:
+                tmp_gr_pos_enc_kernel = None
+            else:
+                tmp_gr_pos_enc_kernel = gr_pos_enc_kernel[:, :, first_idx: last_idx, first_idx: last_idx]
+                tmp_gr_pos_enc_kernel[:, :, 0, :] = gr_pos_enc_kernel[:, :, 0, first_idx: last_idx]
+                tmp_gr_pos_enc_kernel[:, :, :, 0] = gr_pos_enc_kernel[:, :, first_idx: last_idx, 0]
 
             tmp_seq_logit, tmp_dec_out, tmp_made_axiliary_in = self.blocks_stack[block_i](tmp_prev_dec_out, tmp_dec_in,
                                                                                           tmp_trg, tmp_adj, graph_length,

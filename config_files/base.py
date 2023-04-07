@@ -17,6 +17,8 @@ class BaseArgs():
         self.num_blocks = None
         self.shared_blocks = False
 
+        self.n_position = 1000
+
         ### output config
         # self.dir_input = "/dfs/scratch0/jiaxuany0/"
         self.dir_input = "./"

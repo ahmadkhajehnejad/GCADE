@@ -626,14 +626,14 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
         gg_model.eval()
         for i, data in enumerate(dataset_validation):
             if args.use_MADE:
-                gg_model.trg_word_MADE.update_masks()
+                gg_model.update_MADE_masks()
             src_seq = data['src_seq'].to(args.device)
             trg_seq = data['src_seq'].to(args.device)
             gold = data['trg_seq'].contiguous().to(args.device)
             adj = data['adj'].to(args.device)
 
-            pred, dec_output = gg_model(src_seq, trg_seq, gold, adj)
-            loss, *_ = cal_performance( pred, dec_output, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
+            pred, _, made_axiliary_in = gg_model(src_seq, gold, adj)
+            loss, *_ = cal_performance( pred, made_axiliary_in, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
 
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
@@ -644,13 +644,13 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
         with torch.no_grad():
             for i, data in enumerate(dataset_test):
                 if args.use_MADE:
-                    gg_model.trg_word_MADE.update_masks()
+                    gg_model.update_MADE_masks()
                 src_seq = data['src_seq'].to(args.device)
                 trg_seq = data['src_seq'].to(args.device)
                 gold = data['trg_seq'].contiguous().to(args.device)
                 adj = data['adj'].to(args.device)
 
-                pred, _, made_axiliary_in = gg_model(src_seq, trg_seq, gold, adj)
+                pred, _, made_axiliary_in = gg_model(src_seq, gold, adj)
                 loss, *_ = cal_performance(pred, made_axiliary_in, gold, trg_pad_idx=0, args=args, model=gg_model, smoothing=False)
 
                 test_running_loss += loss.item()

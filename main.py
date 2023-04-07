@@ -144,6 +144,8 @@ print('Preparing dataset finished.')
 
 model = BlockWiseTransformer(args).to(args.device)
 
+print(model)
+
 print('model initiated.')
 
 # optimizer = ScheduledOptim(
