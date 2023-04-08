@@ -575,6 +575,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
         trsz = 0
         gg_model.train()
         for i, data in enumerate(dataset_train, 0):
+            torch.cuda.empty_cache()
             if args.use_MADE:
                 gg_model.update_MADE_masks()
             # print(' #', i)
