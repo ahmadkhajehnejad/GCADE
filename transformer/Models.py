@@ -119,7 +119,7 @@ class PropagationGraphPositionalEncoding(nn.Module):
         super(PropagationGraphPositionalEncoding, self).__init__()
         self.base_positional_encoding = BasePositionalEncoding(args, d_hid, n_position)
         self.is_normalized = args.normalize_new_graph_positional_encoding
-        self.eps = args.new_graph_positional_embedding_eps
+        self.eps = args.graph_positional_embedding_eps
 
     def forward(self, x, gr_kernel):
         batch_size = x.size(0)
