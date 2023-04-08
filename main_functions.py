@@ -733,6 +733,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
             running_loss += loss.item()
             trsz += src_seq.size(0)
 
+        '''
         val_running_loss = 0.0
         vlsz = 0
         gg_model.eval()
@@ -749,6 +750,7 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
 
             val_running_loss += loss.item()
             vlsz += src_seq.size(0)
+        '''
 
         test_running_loss = 0.0
         testsz = 0
@@ -773,10 +775,13 @@ def train(gg_model, dataset_train, dataset_validation, dataset_test, optimizer, 
             torch.save(gg_model.state_dict(), fname)
 
         loss_buffer.append(running_loss / trsz)
-        if len(loss_buffer) > 5:
+        if len(loss_buffer) > 10:
             loss_buffer = loss_buffer[1:]
-        print('[epoch %d]     loss: %.3f     val: %.3f     test: %.3f              lr: %f     avg_tr_loss: %f' %
-              (epoch + 1, running_loss / trsz, val_running_loss / vlsz, test_running_loss / testsz, optimizer._optimizer.param_groups[0]['lr'], np.mean(loss_buffer))) #get_lr(optimizer)))
+        #print('[epoch %d]     loss: %.3f     val: %.3f     test: %.3f              lr: %f     avg_tr_loss: %f' %
+        #      (epoch + 1, running_loss / trsz, val_running_loss / vlsz, test_running_loss / testsz, optimizer._optimizer.param_groups[0]['lr'], np.mean(loss_buffer))) #get_lr(optimizer)))
+        print('[epoch %d]     loss: %.3f     test: %.3f              lr: %f     avg_tr_loss: %f' %
+              (epoch + 1, running_loss / trsz, test_running_loss / testsz,
+               optimizer._optimizer.param_groups[0]['lr'], np.mean(loss_buffer)))  # get_lr(optimizer)))
         # print(list(gg_model.encoder.layer_stack[0].slf_attn.gr_att_linear_list[0].parameters()))
         sys.stdout.flush()
         time_end = time.time()
