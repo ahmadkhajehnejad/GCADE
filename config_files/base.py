@@ -10,6 +10,7 @@ class BaseArgs():
 
         # if none, then auto calculate
         self.max_num_node = None  # max number of nodes in a graph
+        self.min_num_node = None
         self.max_prev_node = None  # max previous node that looks back
         self.max_seq_len = None
 
@@ -102,6 +103,7 @@ class BaseArgs():
         self.normalize_graph_attention = False  # True #
         self.batchnormalize_graph_attention = False  # True #
         self.log_graph_attention = False  # True #
+        self.type_graph_positional_encoding = None
         self.k_graph_positional_encoding = 0  # 4
         self.normalize_graph_positional_encoding = False  # True #
         self.batchnormalize_graph_positional_encoding = False  # True #
@@ -169,21 +171,8 @@ class BaseArgs():
                     self.k_graph_attention = int(param[5:])
             elif param == 'gattv2':
                 self.graph_attention_version_2 = True
-            elif param.startswith('newgrposenck'):
-                self.new_graph_positional_embedding_eps = 0.1
-                if param.endswith('batchnorm'):
-                    raise NotImplementedError()
-                    # self.k_new_graph_positional_encoding = int(param[12:-9])
-                    # self.batchnormalize_new_graph_positional_encoding = True
-                elif param.endswith('norm'):
-                    self.k_new_graph_positional_encoding = int(param[12:-4])
-                    self.normalize_new_graph_positional_encoding = True
-                elif param.endswith('log'):
-                    self.k_new_graph_positional_encoding = int(param[12:-3])
-                    self.log_new_graph_positional_encoding = True
-                else:
-                    self.k_new_graph_positional_encoding = int(param[12:])
             elif param.startswith('grposenck'):
+                self.type_graph_positional_encoding = 1
                 if param.endswith('batchnorm'):
                     self.k_graph_positional_encoding = int(param[9:-9])
                     self.batchnormalize_graph_positional_encoding = True
@@ -195,6 +184,19 @@ class BaseArgs():
                     self.log_graph_positional_encoding = True
                 else:
                     self.k_graph_positional_encoding = int(param[9:])
+            elif param.startswith('grposenc2k'):
+                self.type_graph_positional_encoding = 2
+                self.graph_positional_embedding_eps = 0.1
+                if param.endswith('batchnorm'):
+                    raise NotImplementedError()
+                elif param.endswith('norm'):
+                    self.k_graph_positional_encoding = int(param[10:-4])
+                    self.normalize_graph_positional_encoding = True
+                elif param.endswith('log'):
+                    self.k_graph_positional_encoding = int(param[10:-3])
+                    self.log_new_graph_positional_encoding = True
+                else:
+                    self.k_graph_positional_encoding = int(param[10:])
             elif param.startswith('nhead'):
                 self.n_head = int(param[5:])
             elif param.startswith('nensemble'):
