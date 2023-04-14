@@ -575,6 +575,7 @@ def generate_graph_rejection(gg_model, args):
     return G_pred_list
 
 def generate_graph(gg_model, args):
+    torch.cuda.empty_cache()
     if args.exact_generation:
         return generate_graph_exact(gg_model, args)
     else:

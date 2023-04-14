@@ -184,8 +184,8 @@ class BaseArgs():
                     self.log_graph_positional_encoding = True
                 else:
                     self.k_graph_positional_encoding = int(param[9:])
-            elif param.startswith('grposenc2k'):
-                self.type_graph_positional_encoding = 2
+            elif param.startswith('grposenc2k') or param.startswith('grposenc3k') or param.startswith('grposenc4k'):
+                self.type_graph_positional_encoding = int(param[8:9])
                 self.graph_positional_embedding_eps = 0.1
                 if param.endswith('batchnorm'):
                     raise NotImplementedError()
