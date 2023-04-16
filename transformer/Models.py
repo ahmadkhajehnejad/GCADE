@@ -73,7 +73,7 @@ class BasePositionalEncoding(nn.Module):
 
         return torch.FloatTensor(sinusoid_table).unsqueeze(0)
 
-    def forward(self, x):
+    def forward(self, x, gr_kernel=None):
         return self.pos_table[:, :x.size(1)].clone().detach()
 
 
@@ -83,7 +83,7 @@ class PositionalEncoding(nn.Module):
         super(PositionalEncoding, self).__init__()
         self.base_positional_encoding = BasePositionalEncoding(args, d_hid, n_position)
 
-    def forward(self, x):
+    def forward(self, x, gr_kernel=None):
         base_emb = self.base_positional_encoding(x)
         if len(x.size()) == 4:
             base_emb = base_emb.unsqueeze(-2)
@@ -120,8 +120,8 @@ class GraphPositionalEncoding(nn.Module):
         super(GraphPositionalEncoding, self).__init__()
         self.base_graph_positional_encoding = BaseGraphPositionalEncoding(args, d_hid)
 
-    def forward(self, x):
-        base_emb = self.base_graph_positional_encoding(x)
+    def forward(self, x, gr_kernel):
+        base_emb = self.base_graph_positional_encoding(x, gr_kernel)
         if len(x.size()) == 4:
             base_emb = base_emb.unsqueeze(-2)
         return x + base_emb
@@ -137,7 +137,9 @@ class BasePropagationGraphPositionalEncoding(nn.Module):
 
     def forward(self, x, gr_kernel):
         batch_size = x.size(0)
-        base_emb = self.base_positional_encoding(x).repeat(batch_size, 1, 1)
+        base_emb = self.base_positional_encoding(x, gr_kernel)
+        if base_emb.size(0) == 1:
+            base_emb = base_emb.repeat(batch_size, 1, 1)
         coef = 1
         sum_coef = 0
         n_k = gr_kernel.size(1) - 1 if not self.is_normalized else int((gr_kernel.size(1) + 1) / 2) - 1
@@ -159,7 +161,7 @@ class BasePropagationGraphPositionalEncoding(nn.Module):
 
         emb = emb / sum_coef
 
-        return x + emb
+        return emb
 
 
 class PropagationGraphPositionalEncoding(nn.Module):
@@ -168,11 +170,23 @@ class PropagationGraphPositionalEncoding(nn.Module):
         super(PropagationGraphPositionalEncoding, self).__init__()
         self.base_propagation_graph_positional_encoding = BasePropagationGraphPositionalEncoding(args, base_positional_encoding)
 
-    def forward(self, x):
-        base_emb = self.base_graph_positional_encoding(x)
+    def forward(self, x, gr_kernel):
+        base_emb = self.base_propagation_graph_positional_encoding(x, gr_kernel)
         if len(x.size()) == 4:
             base_emb = base_emb.unsqueeze(-2)
         return x + base_emb
+
+class NoAddPropagationGraphPositionalEncoding(nn.Module):
+
+    def __init__(self, args, base_positional_encoding):
+        super(NoAddPropagationGraphPositionalEncoding, self).__init__()
+        self.base_propagation_graph_positional_encoding = BasePropagationGraphPositionalEncoding(args, base_positional_encoding)
+
+    def forward(self, x, gr_kernel):
+        base_emb = self.base_propagation_graph_positional_encoding(x, gr_kernel)
+        if len(x.size()) == 4:
+            base_emb = base_emb.unsqueeze(-2)
+        return base_emb
 
 
 # class NewGraphPositionalEncoding(nn.Module):
@@ -267,9 +281,9 @@ class Encoder(nn.Module):
                                                                        base_positional_encoding=BaseGraphPositionalEncoding(args,
                                                                                                                             d_hid=args.d_word_vec))
             elif args.type_graph_positional_encoding == 4:
-                self.position_enc = BasePropagationGraphPositionalEncoding(args=args,
-                                                                           base_positional_encoding=BaseGraphPositionalEncoding(args,
-                                                                                                                                d_hid=args.d_word_vec))
+                self.position_enc = NoAddPropagationGraphPositionalEncoding(args=args,
+                                                                            base_positional_encoding=BaseGraphPositionalEncoding(args,
+                                                                                                                                 d_hid=args.d_word_vec))
             else:
                 raise NotImplementedError()
         else:
@@ -330,10 +344,8 @@ class Encoder(nn.Module):
         if self.scale_emb:
             enc_output *= self.d_model ** 0.5
 
-        if (self.args.k_graph_positional_encoding > 0) or (self.args.k_new_graph_positional_encoding > 0):
-            enc_output = self.dropout(self.position_enc(enc_output, gr_pos_enc_kernel))
-        else:
-            enc_output = self.dropout(self.position_enc(enc_output))
+
+        enc_output = self.dropout(self.position_enc(enc_output, gr_pos_enc_kernel))
         if not self.args.no_model_layer_norm:
             enc_output = self.layer_norm(enc_output)
 
