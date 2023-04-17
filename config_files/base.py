@@ -108,10 +108,7 @@ class BaseArgs():
         self.normalize_graph_positional_encoding = False  # True #
         self.batchnormalize_graph_positional_encoding = False  # True #
         self.log_graph_positional_encoding = False  # True #
-        self.k_new_graph_positional_encoding = 0  # 4
-        self.normalize_new_graph_positional_encoding = False  # True #
-        # self.batchnormalize_new_graph_positional_encoding = False  # True #
-        self.log_new_graph_positional_encoding = False  # True #
+        self.add_positional_encoding = True
         self.use_MADE = False  # True #
         self.MADE_num_masks = 3  # 1
         self.MADE_natural_ordering = False  # True #
@@ -194,9 +191,11 @@ class BaseArgs():
                     self.normalize_graph_positional_encoding = True
                 elif param.endswith('log'):
                     self.k_graph_positional_encoding = int(param[10:-3])
-                    self.log_new_graph_positional_encoding = True
+                    self.log_graph_positional_encoding = True
                 else:
                     self.k_graph_positional_encoding = int(param[10:])
+            elif param == 'noaddposenc':
+                self.add_positional_encoding = False
             elif param.startswith('nhead'):
                 self.n_head = int(param[5:])
             elif param.startswith('nensemble'):

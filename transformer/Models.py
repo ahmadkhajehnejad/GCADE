@@ -82,12 +82,16 @@ class PositionalEncoding(nn.Module):
     def __init__(self, args, d_hid, n_position=1000):
         super(PositionalEncoding, self).__init__()
         self.base_positional_encoding = BasePositionalEncoding(args, d_hid, n_position)
+        self.do_add = args.add_positional_encoding
 
     def forward(self, x, gr_kernel=None):
         base_emb = self.base_positional_encoding(x)
         if len(x.size()) == 4:
             base_emb = base_emb.unsqueeze(-2)
-        return x + base_emb
+        if self.do_add:
+            return x + base_emb
+        else:
+            return base_emb
 
 
 class BaseGraphPositionalEncoding(nn.Module):
@@ -119,12 +123,16 @@ class GraphPositionalEncoding(nn.Module):
     def __init__(self, args, d_hid):
         super(GraphPositionalEncoding, self).__init__()
         self.base_graph_positional_encoding = BaseGraphPositionalEncoding(args, d_hid)
+        self.do_add = args.add_positional_encoding
 
     def forward(self, x, gr_kernel):
         base_emb = self.base_graph_positional_encoding(x, gr_kernel)
         if len(x.size()) == 4:
             base_emb = base_emb.unsqueeze(-2)
-        return x + base_emb
+        if self.do_add:
+            return x + base_emb
+        else:
+            return base_emb
 
 
 class BasePropagationGraphPositionalEncoding(nn.Module):
@@ -169,24 +177,16 @@ class PropagationGraphPositionalEncoding(nn.Module):
     def __init__(self, args, base_positional_encoding):
         super(PropagationGraphPositionalEncoding, self).__init__()
         self.base_propagation_graph_positional_encoding = BasePropagationGraphPositionalEncoding(args, base_positional_encoding)
+        self.do_add = args.add_positional_encoding
 
     def forward(self, x, gr_kernel):
         base_emb = self.base_propagation_graph_positional_encoding(x, gr_kernel)
         if len(x.size()) == 4:
             base_emb = base_emb.unsqueeze(-2)
-        return x + base_emb
-
-class NoAddPropagationGraphPositionalEncoding(nn.Module):
-
-    def __init__(self, args, base_positional_encoding):
-        super(NoAddPropagationGraphPositionalEncoding, self).__init__()
-        self.base_propagation_graph_positional_encoding = BasePropagationGraphPositionalEncoding(args, base_positional_encoding)
-
-    def forward(self, x, gr_kernel):
-        base_emb = self.base_propagation_graph_positional_encoding(x, gr_kernel)
-        if len(x.size()) == 4:
-            base_emb = base_emb.unsqueeze(-2)
-        return base_emb
+        if self.do_add:
+            return x + base_emb
+        else:
+            return base_emb
 
 
 # class NewGraphPositionalEncoding(nn.Module):
@@ -280,10 +280,6 @@ class Encoder(nn.Module):
                 self.position_enc = PropagationGraphPositionalEncoding(args=args,
                                                                        base_positional_encoding=BaseGraphPositionalEncoding(args,
                                                                                                                             d_hid=args.d_word_vec))
-            elif args.type_graph_positional_encoding == 4:
-                self.position_enc = NoAddPropagationGraphPositionalEncoding(args=args,
-                                                                            base_positional_encoding=BaseGraphPositionalEncoding(args,
-                                                                                                                                 d_hid=args.d_word_vec))
             else:
                 raise NotImplementedError()
         else:
