@@ -140,7 +140,7 @@ class BasePropagationGraphPositionalEncoding(nn.Module):
     def __init__(self, args, base_positional_encoding):
         super(BasePropagationGraphPositionalEncoding, self).__init__()
         self.base_positional_encoding = base_positional_encoding
-        self.is_normalized = args.normalize_new_graph_positional_encoding
+        self.is_normalized = args.normalize_graph_positional_encoding
         self.eps = args.graph_positional_embedding_eps
 
     def forward(self, x, gr_kernel):
