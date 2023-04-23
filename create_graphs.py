@@ -9,6 +9,29 @@ def create(args):
         for i in range(100, 201):
             graphs.append(nx.ladder_graph(i))
         args.max_prev_node = 10
+    elif args.graph_type == 'lobster':
+        seed = 1234
+        graphs = []
+        p1 = 0.7
+        p2 = 0.7
+        count = 0
+        min_node = 10
+        max_node = 100
+        max_edge = 0
+        mean_node = 80
+        num_graphs = 100
+
+        seed_tmp = seed
+        while count < num_graphs:
+            G = nx.random_lobster(mean_node, p1, p2, seed=seed_tmp)
+            if len(G.nodes()) >= min_node and len(G.nodes()) <= max_node:
+                graphs.append(G)
+                if G.number_of_edges() > max_edge:
+                    max_edge = G.number_of_edges()
+
+                count += 1
+
+            seed_tmp += 1
     elif args.graph_type=='ladder_small':
         graphs = []
         for i in range(2, 11):
