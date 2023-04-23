@@ -6,6 +6,9 @@ import torch
 import torch.nn.functional as F
 from utils import prepare_for_MADE
 from data import my_decode_adj
+import os
+import pickle
+
 
 def cal_performance(pred, dec_output, gold, trg_pad_idx, args, model, termination_bit_weight=None, smoothing=False):
     ''' Apply label smoothing if needed '''
@@ -606,13 +609,21 @@ def just_generate(gg_model, dataset_train, args, gen_iter):
 
     for sample_time in range(1,2): #4):
         print('     sample_time:', sample_time)
+        fname = args.graph_save_path + args.fname_pred + str(gen_iter) + '_' + str(sample_time) + '.dat'
         G_pred = []
+        if os.path.exists(fname):
+            with open(fname, "rb") as f:
+                G_pred = pickle.load(f)
+                cnt = len(G_pred)
+
+        cnt = len(G_pred)
         while len(G_pred)<args.test_total_size:
             print('        len(G_pred):', len(G_pred))
             G_pred_step = generate_graph(gg_model, args)
             G_pred.extend(G_pred_step)
+            if len(G_pred) - cnt >= 100:
+                utils.save_graph_list(G_pred, fname)
         # save graphs
-        fname = args.graph_save_path + args.fname_pred + str(gen_iter) + '_' + str(sample_time) + '.dat'
         utils.save_graph_list(G_pred, fname)
     print('test done, graphs saved')
 
