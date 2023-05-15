@@ -82,6 +82,7 @@ class BaseArgs():
 
         self.ensemble_input_type = 'repeat'  # 'multihop-single' # 'negative' # 'multihop' #
 
+        self.n_postion = 1000
         ################## Default values --- These config parameters can be changed by note argument. ###############33
         self.n_head = 1  # 8
         if self.ensemble_input_type == 'negative':
